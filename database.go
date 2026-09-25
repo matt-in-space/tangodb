@@ -1,6 +1,9 @@
 package main
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 type Operation interface{}
 
@@ -14,8 +17,9 @@ const (
 )
 
 type DefineCollectionOperation struct {
-	Name string
-	Data map[string]DataType
+	Name       string
+	Data       map[string]DataType
+	PrimaryKey string
 }
 
 type Database struct {
@@ -37,9 +41,10 @@ type DefineCollectionResult struct {
 }
 
 type Collection struct {
-	name    string
-	data    map[string]DataType
-	records map[any]Entity
+	name       string
+	data       map[string]DataType
+	records    map[any]Entity
+	primaryKey string
 }
 
 type Entity struct{}
@@ -47,18 +52,25 @@ type Entity struct{}
 func (db *Database) run(o Operation) (OperationResult, error) {
 	switch op := o.(type) {
 	case DefineCollectionOperation:
-		return db.defineCollection(op.Name, op.Data)
+		return db.defineCollection(op.Name, op.Data, op.PrimaryKey)
 
 	default:
 		return nil, errors.New("invalid operation")
 	}
 }
 
-func (db *Database) defineCollection(name string, fields map[string]DataType) (OperationResult, error) {
+func (db *Database) defineCollection(name string, fields map[string]DataType, primaryKey string) (OperationResult, error) {
+	if primaryKey != "" {
+		if _, ok := fields[primaryKey]; !ok {
+			return nil, fmt.Errorf("primary key %q not found in schema for collection %q", primaryKey, name)
+		}
+	}
+
 	collection := Collection{
-		name:    name,
-		data:    fields,
-		records: make(map[any]Entity),
+		name:       name,
+		data:       fields,
+		records:    make(map[any]Entity),
+		primaryKey: primaryKey,
 	}
 
 	db.collections[name] = collection
