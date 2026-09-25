@@ -1,6 +1,16 @@
 package main
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+// ErrIncompleteInput signals that parsing ran out of tokens at a point
+// where more input could still make the statement valid (e.g. a REPL
+// is mid-way through a multi-line statement). Callers that accumulate
+// input across lines should keep reading on this error rather than
+// treating it as a hard failure.
+var ErrIncompleteInput = errors.New("incomplete input")
 
 type parser struct {
 	tokens []token
@@ -15,11 +25,19 @@ func Parse(input string) (Operation, error) {
 
 	p := &parser{tokens: tokens}
 
-	if p.peek().kind == tokenIdent && p.peekAt(1).kind == tokenLBrace {
-		return p.parseDefineCollection()
-	}
+	switch {
+	case p.peek().kind == tokenEOF:
+		return nil, ErrIncompleteInput
 
-	return nil, fmt.Errorf("unrecognized statement")
+	case p.peek().kind == tokenIdent && p.peekAt(1).kind == tokenLBrace:
+		return p.parseDefineCollection()
+
+	case p.peek().kind == tokenIdent && p.peekAt(1).kind == tokenEOF:
+		return nil, ErrIncompleteInput
+
+	default:
+		return nil, fmt.Errorf("unrecognized statement")
+	}
 }
 
 func (p *parser) peek() token {
@@ -41,6 +59,9 @@ func (p *parser) next() token {
 }
 
 func (p *parser) expect(kind tokenKind) error {
+	if p.peek().kind == tokenEOF {
+		return ErrIncompleteInput
+	}
 	if p.peek().kind != kind {
 		return fmt.Errorf("unexpected token %q", p.peek().value)
 	}
@@ -49,6 +70,9 @@ func (p *parser) expect(kind tokenKind) error {
 }
 
 func (p *parser) expectIdent() (string, error) {
+	if p.peek().kind == tokenEOF {
+		return "", ErrIncompleteInput
+	}
 	if p.peek().kind != tokenIdent {
 		return "", fmt.Errorf("expected identifier, got %q", p.peek().value)
 	}

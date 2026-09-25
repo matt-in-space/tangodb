@@ -1,5 +1,7 @@
 package main
 
+import "os"
+
 func main() {
-	println("Hello")
+	RunREPL(os.Stdin, os.Stdout)
 }
