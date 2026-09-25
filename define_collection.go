@@ -19,14 +19,15 @@ func (db *Database) defineCollection(name string, fields map[string]DataType, pr
 		}
 	}
 
-	collection := Collection{
-		name:       name,
-		data:       fields,
-		records:    make(map[any]Entity),
-		primaryKey: primaryKey,
+	collection := &Collection{
+		name:         name,
+		data:         fields,
+		records:      make(map[uint64]Entity),
+		primaryKey:   primaryKey,
+		primaryIndex: make(map[any]uint64),
 	}
 
 	db.collections[name] = collection
 
-	return DefineCollectionResult{Collection: collection}, nil
+	return DefineCollectionResult{Collection: *collection}, nil
 }
