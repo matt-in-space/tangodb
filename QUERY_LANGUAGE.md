@@ -16,9 +16,9 @@ A collection is a named block of typed fields.
 
 ```
 user {
-  id: INT @id
-  name: TEXT
-  age: INT
+  id: int @id
+  name: text
+  age: int
 }
 ```
 
