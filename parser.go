@@ -29,6 +29,9 @@ func Parse(input string) (Operation, error) {
 	case p.peek().kind == tokenEOF:
 		return nil, ErrIncompleteInput
 
+	case p.peek().kind == tokenInsertOp:
+		return p.parseInsert()
+
 	case p.peek().kind == tokenIdent && p.peekAt(1).kind == tokenLBrace:
 		return p.parseDefineCollection()
 

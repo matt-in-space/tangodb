@@ -8,7 +8,7 @@ A database written in Go, with its own query language. Still early — this READ
 go run .
 ```
 
-This starts an interactive prompt (`>`) that reads a statement, parses it, and prints the result. Enter starts a new line rather than submitting — the REPL keeps reading until what you've typed forms a complete statement, then submits it automatically. While a statement is still incomplete, the prompt switches to a continuation prompt (`... `).
+This starts an interactive prompt (`>`) backed by a single in-memory database that lives for the session. It reads a statement, parses it, runs it against that database, and prints the result (or an error). Enter starts a new line rather than submitting — the REPL keeps reading until what you've typed forms a complete statement, then submits it automatically. While a statement is still incomplete, the prompt switches to a continuation prompt (`... `).
 
 Exit with Ctrl+D.
 
@@ -30,7 +30,10 @@ Type it into the REPL across as many lines as you like — it submits as soon as
 ...   id: int @id
 ...   name: text
 ... }
-{Name:user Data:map[id:0 name:2] PrimaryKey:id}
+{user {
+  id: int @id
+  name: text
+}}
 ```
 
 **Types:** `int`, `float`, `text`, `bool` (case-insensitive).
@@ -41,9 +44,36 @@ A collection can also be written on a single line:
 
 ```
 > user { name: text }
-{Name:user Data:map[name:2] PrimaryKey:}
+{user {
+  name: text
+}}
+```
+
+## Inserting a record
+
+```
+> >> user => {id: 1, name: "Matt"}
+{map[id:1 name:Matt]}
+```
+
+Field values can be a quoted string (`"Matt"`, with `\"` and `\\` supported as escapes) or a number — a plain integer (`39`) or a decimal (`9.99`). Fields are separated by commas, with an optional trailing comma before the closing `}`.
+
+Inserting into a collection with a declared `@id` field enforces it: the record must include that field, and a duplicate value is rejected rather than overwritten:
+
+```
+> >> user => {id: 1}
+{map[id:1]}
+> >> user => {id: 1}
+error: duplicate primary key 1 for collection "user"
+```
+
+Inserting into a collection that hasn't been defined is also an error:
+
+```
+> >> ghost => {id: 1}
+error: collection "ghost" does not exist
 ```
 
 ## Status
 
-The REPL currently only parses collection definitions — it doesn't yet run them against a database or support the rest of the query language (insert, read, delete) described in `QUERY_LANGUAGE.md`. Those operations exist at the Go level (see `insert.go`) but aren't wired into the parser or REPL yet.
+The REPL currently supports defining a collection and inserting a flat record into one. Not yet supported: nested/embedded values in a record, the write's return-projection clause (`=> {id}`), batch inserts (`&`), and the rest of the query language (read, merge, delete) described in `QUERY_LANGUAGE.md`.

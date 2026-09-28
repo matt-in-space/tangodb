@@ -9,6 +9,7 @@ import (
 )
 
 func RunREPL(in io.Reader, out io.Writer) {
+	db := NewDatabase("")
 	scanner := bufio.NewScanner(in)
 	var buffer strings.Builder
 
@@ -28,7 +29,12 @@ func RunREPL(in io.Reader, out io.Writer) {
 
 		switch {
 		case err == nil:
-			fmt.Fprintf(out, "%+v\n", op)
+			result, runErr := db.run(op)
+			if runErr != nil {
+				fmt.Fprintf(out, "error: %v\n", runErr)
+			} else {
+				fmt.Fprintf(out, "%v\n", result)
+			}
 			buffer.Reset()
 			fmt.Fprint(out, "> ")
 
