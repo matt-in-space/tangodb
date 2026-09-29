@@ -28,6 +28,20 @@ func (db *Database) merge(collectionName string, filter map[string]any, payload 
 		return nil, err
 	}
 
+	if collection.primaryKey != "" {
+		if _, ok := payload[collection.primaryKey]; ok {
+			return nil, fmt.Errorf("payload must not set primary key %q for collection %q", collection.primaryKey, collectionName)
+		}
+	}
+
+	autoFields := collection.sortedAutoFields()
+
+	for _, field := range autoFields {
+		if _, ok := payload[field]; ok {
+			return nil, fmt.Errorf("payload must not set auto-increment field %q for collection %q", field, collectionName)
+		}
+	}
+
 	if err := validateFields(collection, payload); err != nil {
 		return nil, err
 	}
@@ -41,12 +55,6 @@ func (db *Database) merge(collectionName string, filter map[string]any, payload 
 			if _, ok := collection.data[field]; !ok {
 				return nil, fmt.Errorf("field %q not found in schema for collection %q", field, collectionName)
 			}
-		}
-	}
-
-	if collection.primaryKey != "" {
-		if _, ok := payload[collection.primaryKey]; ok {
-			return nil, fmt.Errorf("payload must not set primary key %q for collection %q", collection.primaryKey, collectionName)
 		}
 	}
 
@@ -70,6 +78,10 @@ func (db *Database) merge(collectionName string, filter map[string]any, payload 
 		}
 
 		for field, value := range payload {
+			if value == nil {
+				delete(record, field)
+				continue
+			}
 			record[field] = value
 		}
 		count++

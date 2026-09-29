@@ -40,7 +40,7 @@ Type it into the REPL across as many lines as you like — it submits as soon as
 
 **`@id`** marks a field as the collection's primary key. It's optional — a collection can be defined with no primary key at all. At most one field may be marked `@id`.
 
-**`@auto`** makes an `int @id` field auto-increment, starting at `1`. It can only be used alongside `@id`, and only on an `int` field:
+**`@auto`** makes an `int` field auto-increment, starting at `1`. It's most often used on the primary key, but works on any `int` field:
 
 ```
 > user { id: int @id @auto name: text }
@@ -60,6 +60,30 @@ With `@auto`, insert must *not* supply that field — the database assigns it an
 > >> user {id: 99, name: "nope"}
 error: field "id" is auto-increment and must not be supplied for collection "user"
 ```
+
+`@auto` and `@id` are independent: `@id` is the record's identity, `@auto` means the database assigns the value. So a collection can use a key you choose alongside a generated sequence number, and a collection can have more than one `@auto` field — each keeps its own counter:
+
+```
+> ticket { code: text @id number: int @auto title: text }
+{ticket {
+  code: text @id
+  number: int @auto
+  title: text
+}}
+> >> ticket {code: "A" title: "first"}
+{map[code:A number:1 title:first]}
+> >> ticket {code: "B" title: "second"}
+{map[code:B number:2 title:second]}
+```
+
+The database is the only thing that ever writes an `@auto` field — insert can't supply it (not even as `null`), and a merge payload can't set it:
+
+```
+> ~> ticket(code: "A") {number: 9};
+error: payload must not set auto-increment field "number" for collection "ticket"
+```
+
+That's what keeps the values unique without needing an index. Counter values are never reused, and an insert that fails for any reason doesn't use one up. Since an `@auto` field always has a value, it can't be `@optional`.
 
 A collection can also be written on a single line:
 
@@ -108,6 +132,54 @@ The same rules apply everywhere a value appears — insert records, merge payloa
 
 Validation is all-or-nothing: the whole statement is checked before anything is written, so one bad field fails the entire insert, and a bulk merge with a bad payload changes no records at all.
 
+### Required and optional fields
+
+Every declared field is **required** unless it's marked `@optional`. An insert that leaves out a required field fails:
+
+```
+> >> user {id: 2}
+error: field "name" is required for collection "user"
+```
+
+`@optional` marks a field that's allowed to have no value. "No value" is written `null` (unquoted; `"null"` is just text), and leaving an optional field out of an insert means exactly the same thing as writing `null` for it:
+
+```
+> profile { id: int @id name: text nickname: text @optional }
+{profile {
+  id: int @id
+  name: text
+  nickname: text @optional
+}}
+> >> profile {id: 1 name: "Matt"}
+{map[id:1 name:Matt]}
+> >> profile {id: 2 name: "Sam" nickname: "S"}
+{map[id:2 name:Sam nickname:S]}
+> << profile => {*};
+id  name  nickname
+1   Matt  null
+2   Sam   S
+```
+
+A field with no value shows as `null` in a table, not as a blank cell, so it can't be mistaken for an empty string. (The text `"null"` also prints as `null` for now — output formatting will get its own pass later.)
+
+`null` works everywhere a value does, but only for optional fields:
+
+- **Merge** `{nickname: null}` clears the field's value.
+- **Filter** `(nickname: null)` matches records where the field has no value — plain equality, so `null` equals `null`.
+- On a required field, `null` is an error in an insert, a merge payload, or a filter (a `null` filter on a required field could never match anything):
+
+```
+> << profile(name: null);
+error: field "name" is required and cannot be null
+```
+
+A primary key always has a value, so `@id` and `@optional` together are an error:
+
+```
+> x { id: int @id @optional }
+error: @id field "id" cannot be @optional
+```
+
 Commas between fields are optional — here and everywhere else a list appears (schema blocks, filters, projections). Use them when they make a one-liner easier to read, or leave them out, especially across multiple lines. These are all the same insert:
 
 ```
@@ -126,9 +198,9 @@ A comma inside a quoted string is part of the value, not a separator (`"Smith, M
 Inserting into a collection with a declared `@id` field enforces it: the record must include that field, and a duplicate value is rejected rather than overwritten:
 
 ```
-> >> user {id: 1}
-{map[id:1]}
-> >> user {id: 1}
+> >> user {id: 1 name: "Matt"}
+{map[id:1 name:Matt]}
+> >> user {id: 1 name: "Matt"}
 error: duplicate primary key 1 for collection "user"
 ```
 
@@ -277,7 +349,7 @@ age  id  name
 Like delete, **the filter parens are always required, even when empty** — there's no bare `~> user {...}` shorthand, since merge can update an entire collection at once just as easily as delete can remove one:
 
 ```
-> ~> user() {status: "inactive"};
+> ~> user() {age: 41};
 1
 > ~> user {name: "Matt"};
 error: merge requires an explicit filter, e.g. ~> user() to match everything

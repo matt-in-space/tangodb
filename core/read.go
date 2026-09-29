@@ -80,6 +80,8 @@ func (db *Database) read(collectionName string, filter map[string]any, projectio
 }
 
 func recordMatchesFilter(record Entity, filter map[string]any) bool {
+	// A field with no value is absent from the record, so record[field] is nil
+	// and matches a null filter value by plain equality.
 	for field, want := range filter {
 		if record[field] != want {
 			return false
@@ -158,7 +160,7 @@ func renderTable(projection []string, records []Entity) string {
 
 func formatCell(v any) string {
 	if v == nil {
-		return ""
+		return "null"
 	}
 	return fmt.Sprintf("%v", v)
 }

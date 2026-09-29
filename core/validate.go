@@ -44,8 +44,45 @@ func validateFields(collection *Collection, fields map[string]any) error {
 			return fmt.Errorf("field %q not found in schema for collection %q", name, collection.name)
 		}
 
-		if err := validateValue(dataType, fields[name]); err != nil {
+		value := fields[name]
+
+		if value == nil {
+			if !collection.optional[name] {
+				return fmt.Errorf("field %q is required and cannot be null", name)
+			}
+			continue
+		}
+
+		if err := validateValue(dataType, value); err != nil {
 			return fmt.Errorf("field %q: %w", name, err)
+		}
+	}
+
+	return nil
+}
+
+// validateRequired checks that a record being inserted has a value for every
+// required field. Auto-increment fields are skipped, since the database
+// assigns them. Fields are checked in sorted order so the reported
+// error is deterministic.
+func validateRequired(collection *Collection, record Entity) error {
+	names := make([]string, 0, len(collection.data))
+	for name := range collection.data {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		if collection.optional[name] {
+			continue
+		}
+
+		if collection.isAuto(name) {
+			continue
+		}
+
+		if record[name] == nil {
+			return fmt.Errorf("field %q is required for collection %q", name, collection.name)
 		}
 	}
 

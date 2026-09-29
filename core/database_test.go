@@ -59,32 +59,73 @@ func TestDatabaseRun_DefineCollectionRejectsUnknownPrimaryKey(t *testing.T) {
 	}
 }
 
-func TestDatabaseRun_DefineCollectionRejectsAutoWithoutPrimaryKey(t *testing.T) {
+func TestDatabaseRun_DefineCollectionAllowsAutoWithoutPrimaryKey(t *testing.T) {
 	o := DefineCollectionOperation{
-		Name:          "user",
-		Data:          map[string]DataType{"id": TypeInt},
-		AutoIncrement: true,
+		Name:       "ticket",
+		Data:       map[string]DataType{"number": TypeInt},
+		AutoFields: map[string]bool{"number": true},
 	}
 
 	d := NewDatabase("test")
 
-	if _, err := d.Run(o); err == nil {
-		t.Fatal("expected an error for AutoIncrement without a primary key")
+	if _, err := d.Run(o); err != nil {
+		t.Fatalf("expected no error, got %v", err)
 	}
 }
 
-func TestDatabaseRun_DefineCollectionRejectsAutoOnNonIntPrimaryKey(t *testing.T) {
+func TestDatabaseRun_DefineCollectionRejectsOptionalAutoField(t *testing.T) {
 	o := DefineCollectionOperation{
-		Name:          "user",
-		Data:          map[string]DataType{"id": TypeText},
-		PrimaryKey:    "id",
-		AutoIncrement: true,
+		Name:       "ticket",
+		Data:       map[string]DataType{"number": TypeInt},
+		AutoFields: map[string]bool{"number": true},
+		Optional:   map[string]bool{"number": true},
+	}
+
+	d := NewDatabase("test")
+
+	_, err := d.Run(o)
+	if err == nil {
+		t.Fatal("expected an error for an optional auto field")
+	}
+
+	want := `@auto field "number" cannot be @optional`
+	if err.Error() != want {
+		t.Fatalf("expected error %q, got %q", want, err.Error())
+	}
+}
+
+func TestDatabaseRun_DefineCollectionRejectsUnknownAutoField(t *testing.T) {
+	o := DefineCollectionOperation{
+		Name:       "ticket",
+		Data:       map[string]DataType{"number": TypeInt},
+		AutoFields: map[string]bool{"nope": true},
 	}
 
 	d := NewDatabase("test")
 
 	if _, err := d.Run(o); err == nil {
-		t.Fatal("expected an error for AutoIncrement on a non-int primary key")
+		t.Fatal("expected an error for an auto field missing from the schema")
+	}
+}
+
+func TestDatabaseRun_DefineCollectionRejectsAutoOnNonIntField(t *testing.T) {
+	o := DefineCollectionOperation{
+		Name:       "user",
+		Data:       map[string]DataType{"id": TypeText},
+		PrimaryKey: "id",
+		AutoFields: map[string]bool{"id": true},
+	}
+
+	d := NewDatabase("test")
+
+	_, err := d.Run(o)
+	if err == nil {
+		t.Fatal("expected an error for @auto on a non-int field")
+	}
+
+	want := `@auto requires an int field (field "id")`
+	if err.Error() != want {
+		t.Fatalf("expected error %q, got %q", want, err.Error())
 	}
 }
 
@@ -112,5 +153,23 @@ func TestDatabaseRun_DefineCollectionAllowsNoPrimaryKey(t *testing.T) {
 
 	if defineResult.Collection.primaryKey != "" {
 		t.Fatalf("expected no primary key, got %q", defineResult.Collection.primaryKey)
+	}
+}
+
+func TestDatabaseRun_DefineCollectionRejectsOptionalPrimaryKey(t *testing.T) {
+	d := NewDatabase("test")
+
+	_, err := d.Run(DefineCollectionOperation{
+		Name:       "user",
+		Data:       map[string]DataType{"id": TypeInt},
+		PrimaryKey: "id",
+		Optional:   map[string]bool{"id": true},
+	})
+	if err == nil {
+		t.Fatal("expected an error for an optional primary key")
+	}
+
+	if _, exists := d.collections["user"]; exists {
+		t.Fatal("expected no collection to be defined")
 	}
 }

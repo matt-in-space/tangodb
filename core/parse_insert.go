@@ -109,6 +109,9 @@ func (p *parser) parseValue() (any, error) {
 		case "false":
 			p.next()
 			return false, nil
+		case "null":
+			p.next()
+			return nil, nil
 		}
 		return nil, fmt.Errorf("expected a value, got %q", p.peek().value)
 

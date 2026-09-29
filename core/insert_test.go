@@ -159,10 +159,10 @@ func TestDatabaseRun_InsertAssignsSequentialAutoIncrementIDs(t *testing.T) {
 	d := NewDatabase("test")
 
 	_, err := d.Run(DefineCollectionOperation{
-		Name:          "user",
-		Data:          map[string]DataType{"id": TypeInt, "name": TypeText},
-		PrimaryKey:    "id",
-		AutoIncrement: true,
+		Name:       "user",
+		Data:       map[string]DataType{"id": TypeInt, "name": TypeText},
+		PrimaryKey: "id",
+		AutoFields: map[string]bool{"id": true},
 	})
 	if err != nil {
 		t.Fatalf("Failed to define collection, err: %v", err)
@@ -194,10 +194,10 @@ func TestDatabaseRun_InsertRejectsManualValueOnAutoIncrementField(t *testing.T) 
 	d := NewDatabase("test")
 
 	_, err := d.Run(DefineCollectionOperation{
-		Name:          "user",
-		Data:          map[string]DataType{"id": TypeInt},
-		PrimaryKey:    "id",
-		AutoIncrement: true,
+		Name:       "user",
+		Data:       map[string]DataType{"id": TypeInt},
+		PrimaryKey: "id",
+		AutoFields: map[string]bool{"id": true},
 	})
 	if err != nil {
 		t.Fatalf("Failed to define collection, err: %v", err)

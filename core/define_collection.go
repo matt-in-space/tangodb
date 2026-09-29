@@ -3,40 +3,61 @@ package core
 import "fmt"
 
 type DefineCollectionOperation struct {
-	Name          string
-	Data          map[string]DataType
-	PrimaryKey    string
-	AutoIncrement bool
+	Name       string
+	Data       map[string]DataType
+	PrimaryKey string
+	AutoFields map[string]bool
+	Optional   map[string]bool
 }
 
 type DefineCollectionResult struct {
 	Collection Collection
 }
 
-func (db *Database) defineCollection(name string, fields map[string]DataType, primaryKey string, autoIncrement bool) (OperationResult, error) {
+func (db *Database) defineCollection(name string, fields map[string]DataType, primaryKey string, autoFields map[string]bool, optional map[string]bool) (OperationResult, error) {
+	for field := range optional {
+		if _, ok := fields[field]; !ok {
+			return nil, fmt.Errorf("optional field %q not found in schema for collection %q", field, name)
+		}
+		if field == primaryKey {
+			return nil, fmt.Errorf("@id field %q cannot be @optional", field)
+		}
+	}
+
+	if optional == nil {
+		optional = map[string]bool{}
+	}
+
 	if primaryKey != "" {
 		if _, ok := fields[primaryKey]; !ok {
 			return nil, fmt.Errorf("primary key %q not found in schema for collection %q", primaryKey, name)
 		}
 	}
 
-	if autoIncrement {
-		if primaryKey == "" {
-			return nil, fmt.Errorf("@auto requires a primary key for collection %q", name)
+	autoCounters := map[string]int64{}
+
+	for field := range autoFields {
+		dataType, ok := fields[field]
+		if !ok {
+			return nil, fmt.Errorf("auto-increment field %q not found in schema for collection %q", field, name)
 		}
-		if fields[primaryKey] != TypeInt {
-			return nil, fmt.Errorf("@auto requires primary key %q to be int for collection %q", primaryKey, name)
+		if dataType != TypeInt {
+			return nil, fmt.Errorf("@auto requires an int field (field %q)", field)
 		}
+		if optional[field] {
+			return nil, fmt.Errorf("@auto field %q cannot be @optional", field)
+		}
+		autoCounters[field] = 1
 	}
 
 	collection := &Collection{
-		name:          name,
-		data:          fields,
-		records:       make(map[uint64]Entity),
-		primaryKey:    primaryKey,
-		primaryIndex:  make(map[any]uint64),
-		autoIncrement: autoIncrement,
-		nextAutoValue: 1,
+		name:         name,
+		data:         fields,
+		records:      make(map[uint64]Entity),
+		primaryKey:   primaryKey,
+		primaryIndex: make(map[any]uint64),
+		autoCounters: autoCounters,
+		optional:     optional,
 	}
 
 	db.collections[name] = collection

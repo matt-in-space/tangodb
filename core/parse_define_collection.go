@@ -33,7 +33,8 @@ func (p *parser) parseDefineCollection() (Operation, error) {
 
 	data := map[string]DataType{}
 	primaryKey := ""
-	autoIncrement := false
+	autoFields := map[string]bool{}
+	optional := map[string]bool{}
 
 	for p.peek().kind != tokenRBrace {
 		fieldName, err := p.expectIdent()
@@ -59,6 +60,7 @@ func (p *parser) parseDefineCollection() (Operation, error) {
 
 		fieldIsID := false
 		fieldIsAuto := false
+		fieldIsOptional := false
 
 		for p.peek().kind == tokenAt {
 			p.next()
@@ -81,9 +83,25 @@ func (p *parser) parseDefineCollection() (Operation, error) {
 				}
 				fieldIsAuto = true
 
+			case "optional":
+				if fieldIsOptional {
+					return nil, fmt.Errorf("duplicate @optional annotation on field %q", fieldName)
+				}
+				fieldIsOptional = true
+
 			default:
 				return nil, fmt.Errorf("unknown annotation %q on field %q", annotation, fieldName)
 			}
+		}
+
+		if fieldIsOptional {
+			if fieldIsID {
+				return nil, fmt.Errorf("@id field %q cannot be @optional", fieldName)
+			}
+			if fieldIsAuto {
+				return nil, fmt.Errorf("@auto field %q cannot be @optional", fieldName)
+			}
+			optional[fieldName] = true
 		}
 
 		if fieldIsID {
@@ -94,13 +112,10 @@ func (p *parser) parseDefineCollection() (Operation, error) {
 		}
 
 		if fieldIsAuto {
-			if !fieldIsID {
-				return nil, fmt.Errorf("@auto can only be used on the @id field (field %q)", fieldName)
-			}
 			if dataType != TypeInt {
 				return nil, fmt.Errorf("@auto requires an int field (field %q)", fieldName)
 			}
-			autoIncrement = true
+			autoFields[fieldName] = true
 		}
 	}
 
@@ -113,10 +128,11 @@ func (p *parser) parseDefineCollection() (Operation, error) {
 	}
 
 	return DefineCollectionOperation{
-		Name:          name,
-		Data:          data,
-		PrimaryKey:    primaryKey,
-		AutoIncrement: autoIncrement,
+		Name:       name,
+		Data:       data,
+		PrimaryKey: primaryKey,
+		AutoFields: autoFields,
+		Optional:   optional,
 	}, nil
 }
 

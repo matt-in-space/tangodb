@@ -189,3 +189,30 @@ func TestParseInsert_RejectsOtherBareWordsAsValues(t *testing.T) {
 		t.Fatalf("expected error %q, got %q", want, err.Error())
 	}
 }
+
+func TestParseInsert_ParsesNull(t *testing.T) {
+	o, err := ParseInsert(`>> user {nickname: null}`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	value, ok := o.Record["nickname"]
+	if !ok {
+		t.Fatal("expected nickname to be present in the parsed record")
+	}
+
+	if value != nil {
+		t.Fatalf("expected nickname nil, got %v (%T)", value, value)
+	}
+}
+
+func TestParseInsert_QuotedNullIsAString(t *testing.T) {
+	o, err := ParseInsert(`>> user {nickname: "null"}`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if o.Record["nickname"] != "null" {
+		t.Fatalf("expected the string %q, got %v (%T)", "null", o.Record["nickname"], o.Record["nickname"])
+	}
+}

@@ -21,7 +21,7 @@ func NewDatabase(path string) *Database {
 func (db *Database) Run(o Operation) (OperationResult, error) {
 	switch op := o.(type) {
 	case DefineCollectionOperation:
-		return db.defineCollection(op.Name, op.Data, op.PrimaryKey, op.AutoIncrement)
+		return db.defineCollection(op.Name, op.Data, op.PrimaryKey, op.AutoFields, op.Optional)
 
 	case InsertOperation:
 		return db.insert(op.Collection, op.Record)

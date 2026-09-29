@@ -96,8 +96,8 @@ func TestParseDefineCollection_ParsesAutoIncrement(t *testing.T) {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
 
-	if !o.AutoIncrement {
-		t.Fatal("expected AutoIncrement to be true")
+	if !o.AutoFields["id"] {
+		t.Fatal("expected id to be an auto field")
 	}
 
 	if o.PrimaryKey != "id" {
@@ -111,14 +111,51 @@ func TestParseDefineCollection_AllowsAutoBeforeID(t *testing.T) {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
 
-	if !o.AutoIncrement {
-		t.Fatal("expected AutoIncrement to be true")
+	if !o.AutoFields["id"] {
+		t.Fatal("expected id to be an auto field")
 	}
 }
 
-func TestParseDefineCollection_RejectsAutoWithoutID(t *testing.T) {
-	if _, err := ParseDefineCollection(`user { id: int @auto }`); err == nil {
-		t.Fatal("expected an error for @auto without @id")
+func TestParseDefineCollection_AllowsAutoWithoutID(t *testing.T) {
+	o, err := ParseDefineCollection(`ticket { code: text @id number: int @auto }`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if !o.AutoFields["number"] {
+		t.Fatal("expected number to be an auto field")
+	}
+
+	if o.AutoFields["code"] {
+		t.Fatal("expected code not to be an auto field")
+	}
+}
+
+func TestParseDefineCollection_AllowsMultipleAutoFields(t *testing.T) {
+	o, err := ParseDefineCollection(`event { id: int @id @auto seq: int @auto }`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if !o.AutoFields["id"] || !o.AutoFields["seq"] {
+		t.Fatalf("expected id and seq to be auto fields, got %v", o.AutoFields)
+	}
+}
+
+func TestParseDefineCollection_RejectsOptionalAuto(t *testing.T) {
+	for _, input := range []string{
+		`ticket { number: int @auto @optional }`,
+		`ticket { number: int @optional @auto }`,
+	} {
+		_, err := ParseDefineCollection(input)
+		if err == nil {
+			t.Fatalf("expected an error for %q", input)
+		}
+
+		want := `@auto field "number" cannot be @optional`
+		if err.Error() != want {
+			t.Fatalf("for %q expected error %q, got %q", input, want, err.Error())
+		}
 	}
 }
 
@@ -197,5 +234,44 @@ func TestParseDefineCollection_EndToEndThroughDatabase(t *testing.T) {
 
 	if defineResult.Collection.name != "user" {
 		t.Fatalf("expected collection name %q, got %q", "user", defineResult.Collection.name)
+	}
+}
+
+func TestParseDefineCollection_ParsesOptional(t *testing.T) {
+	o, err := ParseDefineCollection(`user { id: int @id nickname: text @optional }`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if !o.Optional["nickname"] {
+		t.Fatal("expected nickname to be optional")
+	}
+
+	if o.Optional["id"] {
+		t.Fatal("expected id to be required")
+	}
+}
+
+func TestParseDefineCollection_RejectsDuplicateOptional(t *testing.T) {
+	if _, err := ParseDefineCollection(`user { nickname: text @optional @optional }`); err == nil {
+		t.Fatal("expected an error for a duplicate @optional annotation")
+	}
+}
+
+func TestParseDefineCollection_RejectsOptionalID(t *testing.T) {
+	for _, input := range []string{
+		`user { id: int @id @optional }`,
+		`user { id: int @optional @id }`,
+		`user { id: int @id @auto @optional }`,
+	} {
+		_, err := ParseDefineCollection(input)
+		if err == nil {
+			t.Fatalf("expected an error for %q", input)
+		}
+
+		want := `@id field "id" cannot be @optional`
+		if err.Error() != want {
+			t.Fatalf("for %q expected error %q, got %q", input, want, err.Error())
+		}
 	}
 }

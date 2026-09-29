@@ -161,10 +161,10 @@ func TestDatabaseRun_DeleteDoesNotReuseIDs(t *testing.T) {
 	d := NewDatabase("test")
 
 	if _, err := d.Run(DefineCollectionOperation{
-		Name:          "user",
-		Data:          map[string]DataType{"id": TypeInt},
-		PrimaryKey:    "id",
-		AutoIncrement: true,
+		Name:       "user",
+		Data:       map[string]DataType{"id": TypeInt},
+		PrimaryKey: "id",
+		AutoFields: map[string]bool{"id": true},
 	}); err != nil {
 		t.Fatalf("Failed to define collection, err: %v", err)
 	}

@@ -126,3 +126,18 @@ func TestParseMerge_ParsesBooleansInFilterAndPayload(t *testing.T) {
 		t.Fatalf("expected payload active false, got %v (%T)", o.Payload["active"], o.Payload["active"])
 	}
 }
+
+func TestParseMerge_ParsesNullInFilterAndPayload(t *testing.T) {
+	o, err := ParseMerge(`~> user(nickname: null) {nickname: null};`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if value, ok := o.Filter["nickname"]; !ok || value != nil {
+		t.Fatalf("expected filter nickname nil, got %v (present: %v)", value, ok)
+	}
+
+	if value, ok := o.Payload["nickname"]; !ok || value != nil {
+		t.Fatalf("expected payload nickname nil, got %v (present: %v)", value, ok)
+	}
+}

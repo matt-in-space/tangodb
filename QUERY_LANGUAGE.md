@@ -25,11 +25,23 @@ user {
 
 **Types:** `INT`, `FLOAT`, `TEXT`, `BOOL`
 
-**Literals** carry their type in their syntax: `39` is `int`, `9.99` is `float`, `"Matt"` is `text`, and bare `true` / `false` are `bool` (`"true"` is text).
+**Literals** carry their type in their syntax: `39` is `int`, `9.99` is `float`, `"Matt"` is `text`, and bare `true` / `false` are `bool` (`"true"` is text). Bare `null` means "no value" (`"null"` is text).
 
 **The schema is enforced.** Every value in an insert record, a merge payload, or a filter must match its field's declared type exactly — no implicit conversions, including int to float (a `float` field takes `10.0`, not `10`). A field the schema doesn't declare is an error, never silently stored or dropped. The whole statement is validated before anything is written, so an invalid statement changes nothing.
 
 **`@id`** marks a field as the collection's identity/primary key.
+
+**`@auto`** marks an `int` field whose value the database assigns from its own counter (1, 2, 3, ...), independent of `@id` — `code: text @id` next to `number: int @auto` is fine, and a collection can have several `@auto` fields. Only the database writes them: insert can't supply one and a merge payload can't set one, which keeps them unique without an index. They can't be `@optional`.
+
+**Fields are required by default.** `@optional` marks a field that may have no value, written `null`. There is one notion of "no value": omitting an optional field and writing `null` for it are the same. `null` clears a field in a merge payload and matches missing values in a filter (`(nickname: null)`, plain equality). It is an error on a required field. `@id` fields can never be `@optional`.
+
+```
+user {
+  id: int @id
+  name: text
+  nickname: text @optional
+}
+```
 
 ### Nested shapes: embedded vs. related
 
@@ -172,10 +184,10 @@ The payload comes directly after the filter, no `=>` in front of it — same gra
 Like delete, the filter parens are **mandatory**, even when empty — merge is a bulk mutating operation, so there's no bare `~> user {...}` shorthand that would apply to a whole collection by omission:
 
 ```
-~> user() {status: "inactive"}   -- deliberately matches (and updates) everything
+~> user() {age: 41}   -- deliberately matches (and updates) everything
 ```
 
-The update is a **partial merge**, not a full replace — only the fields named in the payload change; anything else already on a matched record is left untouched. Every record matching the filter is updated (no attempt to detect or reject multiple matches — the filter means the same thing here as it does for read and delete). The payload must not include the collection's declared primary key field, whether or not that field is `@auto` — the primary key is something you filter *on*, never something a merge payload sets, since a bulk update could otherwise assign the same key value to more than one row at once.
+The update is a **partial merge**, not a full replace — only the fields named in the payload change; anything else already on a matched record is left untouched. Every record matching the filter is updated (no attempt to detect or reject multiple matches — the filter means the same thing here as it does for read and delete). The payload must not include the collection's declared primary key field, whether or not that field is `@auto` — the primary key is something you filter *on*, never something a merge payload sets, since a bulk update could otherwise assign the same key value to more than one row at once. The same goes for any `@auto` field.
 
 Return value follows the same count-vs-`RETURNING` convention as delete — and the count is a bare integer, no wording around it:
 
