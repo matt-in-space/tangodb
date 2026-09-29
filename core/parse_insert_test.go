@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -84,9 +85,41 @@ func TestParseInsert_ToleratesTrailingSemicolon(t *testing.T) {
 	}
 }
 
-func TestParseInsert_RejectsMissingComma(t *testing.T) {
-	if _, err := ParseInsert(`>> user {id: 1 name: "Matt"}`); err == nil {
-		t.Fatal("expected an error for a missing comma between fields")
+func TestParseInsert_CommasAreOptional(t *testing.T) {
+	withoutCommas, err := ParseInsert(`>> user {id: 1 name: "Matt"}`)
+	if err != nil {
+		t.Fatalf("Failed to parse without commas, err: %v", err)
+	}
+
+	withCommas, err := ParseInsert(`>> user {id: 1, name: "Matt"}`)
+	if err != nil {
+		t.Fatalf("Failed to parse with commas, err: %v", err)
+	}
+
+	if !reflect.DeepEqual(withoutCommas, withCommas) {
+		t.Fatalf("expected identical operations, got %v and %v", withoutCommas, withCommas)
+	}
+}
+
+func TestParseInsert_AllowsMixedAndTrailingCommas(t *testing.T) {
+	o, err := ParseInsert(`>> user {id: 1, name: "Matt" age: 39,}`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if len(o.Record) != 3 || o.Record["age"] != int64(39) {
+		t.Fatalf("expected all three fields, got %v", o.Record)
+	}
+}
+
+func TestParseInsert_CommaInsideStringIsPartOfTheValue(t *testing.T) {
+	o, err := ParseInsert(`>> user {name: "Smith, Matt"}`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if o.Record["name"] != "Smith, Matt" {
+		t.Fatalf("expected %q, got %q", "Smith, Matt", o.Record["name"])
 	}
 }
 

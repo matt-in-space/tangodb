@@ -89,12 +89,6 @@ func (p *parser) parseFilter() (map[string]any, error) {
 		}
 
 		filter[fieldName] = value
-
-		if p.peek().kind != tokenRParen {
-			if err := p.expect(tokenComma); err != nil {
-				return nil, err
-			}
-		}
 	}
 
 	if err := p.expect(tokenRParen); err != nil {
@@ -111,10 +105,10 @@ func (p *parser) parseProjection() ([]string, error) {
 
 	// A wildcard must be the sole content of the braces — `{*}` is the
 	// whole projection. Anything else (`{id, *}` or `{*, id}`) is caught
-	// by the ordinary field-list logic below: expectIdent() rejects '*'
-	// as not an identifier, and this branch's own expect(tokenRBrace)
-	// rejects a ',' immediately after '*'. No bespoke "can't mix" check
-	// is needed.
+	// by the ordinary logic: in the field-list loop below, expectIdent()
+	// rejects '*' as not an identifier; here, expect(tokenRBrace) rejects
+	// any field following '*' (commas are whitespace, so `{*, id}` reaches
+	// this check as `* id`). No bespoke "can't mix" check is needed.
 	if p.peek().kind == tokenStar {
 		p.next()
 
@@ -134,12 +128,6 @@ func (p *parser) parseProjection() ([]string, error) {
 		}
 
 		fields = append(fields, fieldName)
-
-		if p.peek().kind != tokenRBrace {
-			if err := p.expect(tokenComma); err != nil {
-				return nil, err
-			}
-		}
 	}
 
 	if err := p.expect(tokenRBrace); err != nil {

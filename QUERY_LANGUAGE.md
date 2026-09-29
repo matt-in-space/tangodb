@@ -6,6 +6,7 @@ A working spec for the schema and query syntax designed in conversation. Everyth
 
 - Code-like, not English-like. No `SELECT`/`FROM`/`WHERE` sentence-reading. No pluralization games — collection and field names are always singular.
 - Symbols carry direction/intent (`<<` out, `>>` in, `!>` destroy). `!` is physically distant from `<`, `>`, `~`, and `=` on a standard keyboard, so the destructive operation isn't one keystroke away from any of the others — a word-form keyword (e.g. `del`) was considered instead but rejected, since it would collide with the "a bare identifier could still become a collection name" ambiguity every schema definition already has to resolve.
+- Commas are whitespace. They're optional between entries in every list — schema blocks, record literals, filters, projections — so `{id: 1, name: "Matt"}` and `{id: 1 name: "Matt"}` are the same thing. Use them for one-liners, drop them for multi-line.
 - One shared grammar for "what shape of data am I looking at," reused across schema, filters, and projections — including the `*` wildcard, which means "every field currently in the schema" wherever a projection appears (`<< collection(filter) => {*}`, `!> collection(filter) => {*}`, `~> collection(filter) {payload} => {*}`).
 
 ---

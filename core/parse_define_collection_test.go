@@ -140,6 +140,21 @@ func TestParseDefineCollection_RejectsMissingClosingBrace(t *testing.T) {
 	}
 }
 
+func TestParseDefineCollection_AllowsCommasBetweenFields(t *testing.T) {
+	o, err := ParseDefineCollection(`user { id: int @id, name: text }`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if len(o.Data) != 2 || o.Data["id"] != TypeInt || o.Data["name"] != TypeText {
+		t.Fatalf("expected fields id:int and name:text, got %v", o.Data)
+	}
+
+	if o.PrimaryKey != "id" {
+		t.Fatalf("expected primary key %q, got %q", "id", o.PrimaryKey)
+	}
+}
+
 func TestParseDefineCollection_ToleratesTrailingSemicolon(t *testing.T) {
 	o, err := ParseDefineCollection(`user { id: int };`)
 	if err != nil {

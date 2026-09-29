@@ -70,12 +70,6 @@ func (p *parser) parseRecordLiteral() (Entity, error) {
 		}
 
 		record[fieldName] = value
-
-		if p.peek().kind != tokenRBrace {
-			if err := p.expect(tokenComma); err != nil {
-				return nil, err
-			}
-		}
 	}
 
 	if err := p.expect(tokenRBrace); err != nil {

@@ -112,6 +112,28 @@ func TestParseRead_SemicolonToleratedOnAFullyExplicitStatement(t *testing.T) {
 	}
 }
 
+func TestParseRead_FilterWithoutCommas(t *testing.T) {
+	o, err := ParseRead(`<< user(id: 1 name: "Matt") => {id}`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if len(o.Filter) != 2 || o.Filter["id"] != int64(1) || o.Filter["name"] != "Matt" {
+		t.Fatalf("expected both filter conditions, got %v", o.Filter)
+	}
+}
+
+func TestParseRead_ProjectionWithoutCommas(t *testing.T) {
+	o, err := ParseRead(`<< user() => {id name}`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if len(o.Projection) != 2 || o.Projection[0] != "id" || o.Projection[1] != "name" {
+		t.Fatalf("expected projection [id name], got %v", o.Projection)
+	}
+}
+
 func TestParseRead_ParsesWildcardProjection(t *testing.T) {
 	o, err := ParseRead(`<< user => {*};`)
 	if err != nil {

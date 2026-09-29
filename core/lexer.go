@@ -14,7 +14,6 @@ const (
 	tokenLBrace
 	tokenRBrace
 	tokenAt
-	tokenComma
 	tokenSemicolon
 	tokenLParen
 	tokenRParen
@@ -57,8 +56,9 @@ func lex(input string) ([]token, error) {
 			tokens = append(tokens, token{kind: tokenColon, value: ":"})
 			i++
 
+		// Commas are whitespace: optional between entries in every list
+		// construct (schema blocks, record literals, filters, projections).
 		case r == ',':
-			tokens = append(tokens, token{kind: tokenComma, value: ","})
 			i++
 
 		case r == ';':
