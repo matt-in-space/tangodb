@@ -1,7 +1,11 @@
 package main
 
-import "os"
+import (
+	"os"
+
+	"github.com/matt-in-space/tangodb/repl"
+)
 
 func main() {
-	RunREPL(os.Stdin, os.Stdout)
+	repl.RunREPL(os.Stdin, os.Stdout)
 }

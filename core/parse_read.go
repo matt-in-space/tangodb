@@ -1,4 +1,4 @@
-package main
+package core
 
 func ParseRead(input string) (ReadOperation, error) {
 	tokens, err := lex(input)

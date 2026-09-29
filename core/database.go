@@ -1,4 +1,4 @@
-package main
+package core
 
 import "errors"
 
@@ -18,7 +18,7 @@ func NewDatabase(path string) *Database {
 	}
 }
 
-func (db *Database) run(o Operation) (OperationResult, error) {
+func (db *Database) Run(o Operation) (OperationResult, error) {
 	switch op := o.(type) {
 	case DefineCollectionOperation:
 		return db.defineCollection(op.Name, op.Data, op.PrimaryKey, op.AutoIncrement)

@@ -1,4 +1,4 @@
-package main
+package core
 
 import "testing"
 
@@ -14,7 +14,7 @@ func TestDatabaseRun_DefinesACollection(t *testing.T) {
 
 	d := NewDatabase("test")
 
-	result, err := d.run(o)
+	result, err := d.Run(o)
 
 	if err != nil {
 		t.Fatalf("Failed to create table, err: %v", err)
@@ -52,7 +52,7 @@ func TestDatabaseRun_DefineCollectionRejectsUnknownPrimaryKey(t *testing.T) {
 
 	d := NewDatabase("test")
 
-	_, err := d.run(o)
+	_, err := d.Run(o)
 
 	if err == nil {
 		t.Fatal("expected an error for a primary key not present in the schema")
@@ -68,7 +68,7 @@ func TestDatabaseRun_DefineCollectionRejectsAutoWithoutPrimaryKey(t *testing.T) 
 
 	d := NewDatabase("test")
 
-	if _, err := d.run(o); err == nil {
+	if _, err := d.Run(o); err == nil {
 		t.Fatal("expected an error for AutoIncrement without a primary key")
 	}
 }
@@ -83,7 +83,7 @@ func TestDatabaseRun_DefineCollectionRejectsAutoOnNonIntPrimaryKey(t *testing.T)
 
 	d := NewDatabase("test")
 
-	if _, err := d.run(o); err == nil {
+	if _, err := d.Run(o); err == nil {
 		t.Fatal("expected an error for AutoIncrement on a non-int primary key")
 	}
 }
@@ -98,7 +98,7 @@ func TestDatabaseRun_DefineCollectionAllowsNoPrimaryKey(t *testing.T) {
 
 	d := NewDatabase("test")
 
-	result, err := d.run(o)
+	result, err := d.Run(o)
 
 	if err != nil {
 		t.Fatalf("Failed to create table, err: %v", err)

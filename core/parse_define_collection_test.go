@@ -1,4 +1,4 @@
-package main
+package core
 
 import "testing"
 
@@ -170,7 +170,7 @@ func TestParseDefineCollection_EndToEndThroughDatabase(t *testing.T) {
 
 	d := NewDatabase("test")
 
-	result, err := d.run(o)
+	result, err := d.Run(o)
 	if err != nil {
 		t.Fatalf("Failed to run parsed operation, err: %v", err)
 	}

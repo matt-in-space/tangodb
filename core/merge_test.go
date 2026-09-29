@@ -1,4 +1,4 @@
-package main
+package core
 
 import "testing"
 
@@ -7,7 +7,7 @@ func setupUserCollectionForMerge(t *testing.T) *Database {
 
 	d := NewDatabase("test")
 
-	if _, err := d.run(DefineCollectionOperation{
+	if _, err := d.Run(DefineCollectionOperation{
 		Name: "user",
 		Data: map[string]DataType{
 			"id":   TypeInt,
@@ -19,11 +19,11 @@ func setupUserCollectionForMerge(t *testing.T) *Database {
 		t.Fatalf("Failed to define collection, err: %v", err)
 	}
 
-	if _, err := d.run(InsertOperation{Collection: "user", Record: Entity{"id": int64(1), "name": "Sam", "age": int64(40)}}); err != nil {
+	if _, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"id": int64(1), "name": "Sam", "age": int64(40)}}); err != nil {
 		t.Fatalf("Failed to insert, err: %v", err)
 	}
 
-	if _, err := d.run(InsertOperation{Collection: "user", Record: Entity{"id": int64(2), "name": "Pat", "age": int64(40)}}); err != nil {
+	if _, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"id": int64(2), "name": "Pat", "age": int64(40)}}); err != nil {
 		t.Fatalf("Failed to insert, err: %v", err)
 	}
 
@@ -33,7 +33,7 @@ func setupUserCollectionForMerge(t *testing.T) *Database {
 func TestDatabaseRun_MergeUpdatesMatchingRecordsOnly(t *testing.T) {
 	d := setupUserCollectionForMerge(t)
 
-	result, err := d.run(MergeOperation{
+	result, err := d.Run(MergeOperation{
 		Collection: "user",
 		Filter:     map[string]any{"id": int64(1)},
 		Payload:    Entity{"name": "Matt"},
@@ -62,7 +62,7 @@ func TestDatabaseRun_MergeUpdatesMatchingRecordsOnly(t *testing.T) {
 func TestDatabaseRun_MergeWithEmptyFilterUpdatesEverything(t *testing.T) {
 	d := setupUserCollectionForMerge(t)
 
-	result, err := d.run(MergeOperation{
+	result, err := d.Run(MergeOperation{
 		Collection: "user",
 		Filter:     map[string]any{},
 		Payload:    Entity{"age": int64(41)},
@@ -87,7 +87,7 @@ func TestDatabaseRun_MergeWithEmptyFilterUpdatesEverything(t *testing.T) {
 func TestDatabaseRun_MergeIsAPartialUpdate(t *testing.T) {
 	d := setupUserCollectionForMerge(t)
 
-	if _, err := d.run(MergeOperation{
+	if _, err := d.Run(MergeOperation{
 		Collection: "user",
 		Filter:     map[string]any{"id": int64(1)},
 		Payload:    Entity{"name": "Matt"},
@@ -111,7 +111,7 @@ func TestDatabaseRun_MergeIsAPartialUpdate(t *testing.T) {
 func TestDatabaseRun_MergeMatchingNothingIsANoOp(t *testing.T) {
 	d := setupUserCollectionForMerge(t)
 
-	result, err := d.run(MergeOperation{
+	result, err := d.Run(MergeOperation{
 		Collection: "user",
 		Filter:     map[string]any{"id": int64(999)},
 		Payload:    Entity{"name": "Matt"},
@@ -134,7 +134,7 @@ func TestDatabaseRun_MergeMatchingNothingIsANoOp(t *testing.T) {
 func TestDatabaseRun_MergeWithoutProjectionReturnsOnlyCount(t *testing.T) {
 	d := setupUserCollectionForMerge(t)
 
-	result, err := d.run(MergeOperation{
+	result, err := d.Run(MergeOperation{
 		Collection: "user",
 		Filter:     map[string]any{"id": int64(1)},
 		Payload:    Entity{"name": "Matt"},
@@ -157,7 +157,7 @@ func TestDatabaseRun_MergeWithoutProjectionReturnsOnlyCount(t *testing.T) {
 func TestDatabaseRun_MergeWithProjectionReturnsPostMergeState(t *testing.T) {
 	d := setupUserCollectionForMerge(t)
 
-	result, err := d.run(MergeOperation{
+	result, err := d.Run(MergeOperation{
 		Collection: "user",
 		Filter:     map[string]any{"id": int64(1)},
 		Payload:    Entity{"name": "Matt"},
@@ -185,7 +185,7 @@ func TestDatabaseRun_MergeWithProjectionReturnsPostMergeState(t *testing.T) {
 func TestDatabaseRun_MergeRejectsPrimaryKeyInPayload(t *testing.T) {
 	d := setupUserCollectionForMerge(t)
 
-	if _, err := d.run(MergeOperation{
+	if _, err := d.Run(MergeOperation{
 		Collection: "user",
 		Filter:     map[string]any{"name": "Sam"},
 		Payload:    Entity{"id": int64(5)},
@@ -207,7 +207,7 @@ func TestDatabaseRun_MergeRejectsPrimaryKeyInPayload(t *testing.T) {
 func TestDatabaseRun_MergeAllowsFilteringOnPrimaryKey(t *testing.T) {
 	d := setupUserCollectionForMerge(t)
 
-	result, err := d.run(MergeOperation{
+	result, err := d.Run(MergeOperation{
 		Collection: "user",
 		Filter:     map[string]any{"id": int64(1)},
 		Payload:    Entity{"name": "Matt"},
@@ -224,7 +224,7 @@ func TestDatabaseRun_MergeAllowsFilteringOnPrimaryKey(t *testing.T) {
 func TestDatabaseRun_MergeRejectsUnknownCollection(t *testing.T) {
 	d := NewDatabase("test")
 
-	if _, err := d.run(MergeOperation{Collection: "ghost", Filter: map[string]any{}, Payload: Entity{"name": "Matt"}}); err == nil {
+	if _, err := d.Run(MergeOperation{Collection: "ghost", Filter: map[string]any{}, Payload: Entity{"name": "Matt"}}); err == nil {
 		t.Fatal("expected an error for merging into a collection that doesn't exist")
 	}
 }
@@ -232,7 +232,7 @@ func TestDatabaseRun_MergeRejectsUnknownCollection(t *testing.T) {
 func TestDatabaseRun_MergeRejectsUnknownFilterField(t *testing.T) {
 	d := setupUserCollectionForMerge(t)
 
-	if _, err := d.run(MergeOperation{Collection: "user", Filter: map[string]any{"nope": int64(1)}, Payload: Entity{"name": "Matt"}}); err == nil {
+	if _, err := d.Run(MergeOperation{Collection: "user", Filter: map[string]any{"nope": int64(1)}, Payload: Entity{"name": "Matt"}}); err == nil {
 		t.Fatal("expected an error for an unknown filter field")
 	}
 }
@@ -240,7 +240,7 @@ func TestDatabaseRun_MergeRejectsUnknownFilterField(t *testing.T) {
 func TestDatabaseRun_MergeRejectsUnknownProjectionField(t *testing.T) {
 	d := setupUserCollectionForMerge(t)
 
-	if _, err := d.run(MergeOperation{
+	if _, err := d.Run(MergeOperation{
 		Collection: "user",
 		Filter:     map[string]any{},
 		Payload:    Entity{"name": "Matt"},

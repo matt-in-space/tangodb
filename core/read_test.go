@@ -1,4 +1,4 @@
-package main
+package core
 
 import "testing"
 
@@ -7,7 +7,7 @@ func setupUserCollectionWithRecords(t *testing.T) *Database {
 
 	d := NewDatabase("test")
 
-	if _, err := d.run(DefineCollectionOperation{
+	if _, err := d.Run(DefineCollectionOperation{
 		Name: "user",
 		Data: map[string]DataType{
 			"id":   TypeInt,
@@ -18,11 +18,11 @@ func setupUserCollectionWithRecords(t *testing.T) *Database {
 		t.Fatalf("Failed to define collection, err: %v", err)
 	}
 
-	if _, err := d.run(InsertOperation{Collection: "user", Record: Entity{"id": int64(1), "name": "Matt"}}); err != nil {
+	if _, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"id": int64(1), "name": "Matt"}}); err != nil {
 		t.Fatalf("Failed to insert, err: %v", err)
 	}
 
-	if _, err := d.run(InsertOperation{Collection: "user", Record: Entity{"id": int64(2), "name": "Sam"}}); err != nil {
+	if _, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"id": int64(2), "name": "Sam"}}); err != nil {
 		t.Fatalf("Failed to insert, err: %v", err)
 	}
 
@@ -32,7 +32,7 @@ func setupUserCollectionWithRecords(t *testing.T) *Database {
 func TestDatabaseRun_ReadReturnsAllMatchesWithEmptyFilter(t *testing.T) {
 	d := setupUserCollectionWithRecords(t)
 
-	result, err := d.run(ReadOperation{Collection: "user", Filter: map[string]any{}, Projection: []string{"id", "name"}})
+	result, err := d.Run(ReadOperation{Collection: "user", Filter: map[string]any{}, Projection: []string{"id", "name"}})
 	if err != nil {
 		t.Fatalf("Failed to read, err: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestDatabaseRun_ReadReturnsAllMatchesWithEmptyFilter(t *testing.T) {
 func TestDatabaseRun_ReadFiltersByField(t *testing.T) {
 	d := setupUserCollectionWithRecords(t)
 
-	result, err := d.run(ReadOperation{Collection: "user", Filter: map[string]any{"name": "Sam"}, Projection: []string{"id", "name"}})
+	result, err := d.Run(ReadOperation{Collection: "user", Filter: map[string]any{"name": "Sam"}, Projection: []string{"id", "name"}})
 	if err != nil {
 		t.Fatalf("Failed to read, err: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestDatabaseRun_ReadFiltersByField(t *testing.T) {
 func TestDatabaseRun_ReadReturnsNoRecordsWhenNothingMatches(t *testing.T) {
 	d := setupUserCollectionWithRecords(t)
 
-	result, err := d.run(ReadOperation{Collection: "user", Filter: map[string]any{"id": int64(99)}, Projection: []string{"id"}})
+	result, err := d.Run(ReadOperation{Collection: "user", Filter: map[string]any{"id": int64(99)}, Projection: []string{"id"}})
 	if err != nil {
 		t.Fatalf("Failed to read, err: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestDatabaseRun_ReadReturnsNoRecordsWhenNothingMatches(t *testing.T) {
 func TestDatabaseRun_ReadWithNilProjectionReturnsAllSchemaFields(t *testing.T) {
 	d := setupUserCollectionWithRecords(t)
 
-	result, err := d.run(ReadOperation{Collection: "user", Filter: map[string]any{}, Projection: nil})
+	result, err := d.Run(ReadOperation{Collection: "user", Filter: map[string]any{}, Projection: nil})
 	if err != nil {
 		t.Fatalf("Failed to read, err: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestDatabaseRun_ReadWithNilProjectionReturnsAllSchemaFields(t *testing.T) {
 func TestDatabaseRun_ReadRejectsUnknownFilterField(t *testing.T) {
 	d := setupUserCollectionWithRecords(t)
 
-	if _, err := d.run(ReadOperation{Collection: "user", Filter: map[string]any{"nope": int64(1)}, Projection: []string{"id"}}); err == nil {
+	if _, err := d.Run(ReadOperation{Collection: "user", Filter: map[string]any{"nope": int64(1)}, Projection: []string{"id"}}); err == nil {
 		t.Fatal("expected an error for an unknown filter field")
 	}
 }
@@ -115,7 +115,7 @@ func TestDatabaseRun_ReadRejectsUnknownFilterField(t *testing.T) {
 func TestDatabaseRun_ReadRejectsUnknownProjectionField(t *testing.T) {
 	d := setupUserCollectionWithRecords(t)
 
-	if _, err := d.run(ReadOperation{Collection: "user", Filter: map[string]any{}, Projection: []string{"nope"}}); err == nil {
+	if _, err := d.Run(ReadOperation{Collection: "user", Filter: map[string]any{}, Projection: []string{"nope"}}); err == nil {
 		t.Fatal("expected an error for an unknown projection field")
 	}
 }
@@ -123,7 +123,7 @@ func TestDatabaseRun_ReadRejectsUnknownProjectionField(t *testing.T) {
 func TestDatabaseRun_ReadRejectsUnknownCollection(t *testing.T) {
 	d := NewDatabase("test")
 
-	if _, err := d.run(ReadOperation{Collection: "ghost", Filter: map[string]any{}, Projection: []string{"id"}}); err == nil {
+	if _, err := d.Run(ReadOperation{Collection: "ghost", Filter: map[string]any{}, Projection: []string{"id"}}); err == nil {
 		t.Fatal("expected an error for an unknown collection")
 	}
 }

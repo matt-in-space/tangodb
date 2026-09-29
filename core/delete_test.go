@@ -1,4 +1,4 @@
-package main
+package core
 
 import "testing"
 
@@ -7,7 +7,7 @@ func setupUserCollectionForDelete(t *testing.T) *Database {
 
 	d := NewDatabase("test")
 
-	if _, err := d.run(DefineCollectionOperation{
+	if _, err := d.Run(DefineCollectionOperation{
 		Name: "user",
 		Data: map[string]DataType{
 			"id":   TypeInt,
@@ -18,11 +18,11 @@ func setupUserCollectionForDelete(t *testing.T) *Database {
 		t.Fatalf("Failed to define collection, err: %v", err)
 	}
 
-	if _, err := d.run(InsertOperation{Collection: "user", Record: Entity{"id": int64(1), "name": "Matt"}}); err != nil {
+	if _, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"id": int64(1), "name": "Matt"}}); err != nil {
 		t.Fatalf("Failed to insert, err: %v", err)
 	}
 
-	if _, err := d.run(InsertOperation{Collection: "user", Record: Entity{"id": int64(2), "name": "Sam"}}); err != nil {
+	if _, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"id": int64(2), "name": "Sam"}}); err != nil {
 		t.Fatalf("Failed to insert, err: %v", err)
 	}
 
@@ -32,7 +32,7 @@ func setupUserCollectionForDelete(t *testing.T) *Database {
 func TestDatabaseRun_DeleteRemovesMatchingRecordsOnly(t *testing.T) {
 	d := setupUserCollectionForDelete(t)
 
-	result, err := d.run(DeleteOperation{Collection: "user", Filter: map[string]any{"name": "Matt"}})
+	result, err := d.Run(DeleteOperation{Collection: "user", Filter: map[string]any{"name": "Matt"}})
 	if err != nil {
 		t.Fatalf("Failed to delete, err: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestDatabaseRun_DeleteRemovesMatchingRecordsOnly(t *testing.T) {
 func TestDatabaseRun_DeleteWithEmptyFilterRemovesEverything(t *testing.T) {
 	d := setupUserCollectionForDelete(t)
 
-	result, err := d.run(DeleteOperation{Collection: "user", Filter: map[string]any{}})
+	result, err := d.Run(DeleteOperation{Collection: "user", Filter: map[string]any{}})
 	if err != nil {
 		t.Fatalf("Failed to delete, err: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestDatabaseRun_DeleteWithEmptyFilterRemovesEverything(t *testing.T) {
 func TestDatabaseRun_DeleteMatchingNothingIsANoOp(t *testing.T) {
 	d := setupUserCollectionForDelete(t)
 
-	result, err := d.run(DeleteOperation{Collection: "user", Filter: map[string]any{"id": int64(999)}})
+	result, err := d.Run(DeleteOperation{Collection: "user", Filter: map[string]any{"id": int64(999)}})
 	if err != nil {
 		t.Fatalf("expected no error for a delete matching nothing, got: %v", err)
 	}
@@ -103,7 +103,7 @@ func TestDatabaseRun_DeleteMatchingNothingIsANoOp(t *testing.T) {
 func TestDatabaseRun_DeleteWithoutProjectionReturnsOnlyCount(t *testing.T) {
 	d := setupUserCollectionForDelete(t)
 
-	result, err := d.run(DeleteOperation{Collection: "user", Filter: map[string]any{"id": int64(1)}})
+	result, err := d.Run(DeleteOperation{Collection: "user", Filter: map[string]any{"id": int64(1)}})
 	if err != nil {
 		t.Fatalf("Failed to delete, err: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestDatabaseRun_DeleteWithoutProjectionReturnsOnlyCount(t *testing.T) {
 func TestDatabaseRun_DeleteWithProjectionReturnsProjectedRecords(t *testing.T) {
 	d := setupUserCollectionForDelete(t)
 
-	result, err := d.run(DeleteOperation{
+	result, err := d.Run(DeleteOperation{
 		Collection: "user",
 		Filter:     map[string]any{"id": int64(1)},
 		Projection: []string{"name"},
@@ -160,7 +160,7 @@ func TestDatabaseRun_DeleteWithProjectionReturnsProjectedRecords(t *testing.T) {
 func TestDatabaseRun_DeleteDoesNotReuseIDs(t *testing.T) {
 	d := NewDatabase("test")
 
-	if _, err := d.run(DefineCollectionOperation{
+	if _, err := d.Run(DefineCollectionOperation{
 		Name:          "user",
 		Data:          map[string]DataType{"id": TypeInt},
 		PrimaryKey:    "id",
@@ -170,16 +170,16 @@ func TestDatabaseRun_DeleteDoesNotReuseIDs(t *testing.T) {
 	}
 
 	for i := 0; i < 3; i++ {
-		if _, err := d.run(InsertOperation{Collection: "user", Record: Entity{}}); err != nil {
+		if _, err := d.Run(InsertOperation{Collection: "user", Record: Entity{}}); err != nil {
 			t.Fatalf("Failed to insert, err: %v", err)
 		}
 	}
 
-	if _, err := d.run(DeleteOperation{Collection: "user", Filter: map[string]any{"id": int64(2)}}); err != nil {
+	if _, err := d.Run(DeleteOperation{Collection: "user", Filter: map[string]any{"id": int64(2)}}); err != nil {
 		t.Fatalf("Failed to delete, err: %v", err)
 	}
 
-	result, err := d.run(InsertOperation{Collection: "user", Record: Entity{}})
+	result, err := d.Run(InsertOperation{Collection: "user", Record: Entity{}})
 	if err != nil {
 		t.Fatalf("Failed to insert after delete, err: %v", err)
 	}
@@ -194,7 +194,7 @@ func TestDatabaseRun_DeleteDoesNotReuseIDs(t *testing.T) {
 func TestDatabaseRun_DeleteRejectsUnknownCollection(t *testing.T) {
 	d := NewDatabase("test")
 
-	if _, err := d.run(DeleteOperation{Collection: "ghost", Filter: map[string]any{}}); err == nil {
+	if _, err := d.Run(DeleteOperation{Collection: "ghost", Filter: map[string]any{}}); err == nil {
 		t.Fatal("expected an error for deleting from a collection that doesn't exist")
 	}
 }
@@ -202,7 +202,7 @@ func TestDatabaseRun_DeleteRejectsUnknownCollection(t *testing.T) {
 func TestDatabaseRun_DeleteRejectsUnknownFilterField(t *testing.T) {
 	d := setupUserCollectionForDelete(t)
 
-	if _, err := d.run(DeleteOperation{Collection: "user", Filter: map[string]any{"nope": int64(1)}}); err == nil {
+	if _, err := d.Run(DeleteOperation{Collection: "user", Filter: map[string]any{"nope": int64(1)}}); err == nil {
 		t.Fatal("expected an error for an unknown filter field")
 	}
 }
@@ -210,7 +210,7 @@ func TestDatabaseRun_DeleteRejectsUnknownFilterField(t *testing.T) {
 func TestDatabaseRun_DeleteRejectsUnknownProjectionField(t *testing.T) {
 	d := setupUserCollectionForDelete(t)
 
-	if _, err := d.run(DeleteOperation{Collection: "user", Filter: map[string]any{}, Projection: []string{"nope"}}); err == nil {
+	if _, err := d.Run(DeleteOperation{Collection: "user", Filter: map[string]any{}, Projection: []string{"nope"}}); err == nil {
 		t.Fatal("expected an error for an unknown projection field")
 	}
 }

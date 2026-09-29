@@ -1,4 +1,4 @@
-package main
+package repl
 
 import (
 	"bufio"
@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/matt-in-space/tangodb/core"
 )
 
 func RunREPL(in io.Reader, out io.Writer) {
-	db := NewDatabase("")
+	db := core.NewDatabase("")
 	scanner := bufio.NewScanner(in)
 	var buffer strings.Builder
 
@@ -31,11 +33,11 @@ func RunREPL(in io.Reader, out io.Writer) {
 			break
 		}
 
-		op, err := Parse(buffer.String())
+		op, err := core.Parse(buffer.String())
 
 		switch {
 		case err == nil:
-			result, runErr := db.run(op)
+			result, runErr := db.Run(op)
 			if runErr != nil {
 				fmt.Fprintf(out, "error: %v\n", runErr)
 			} else {
@@ -44,7 +46,7 @@ func RunREPL(in io.Reader, out io.Writer) {
 			buffer.Reset()
 			fmt.Fprint(out, "> ")
 
-		case errors.Is(err, ErrIncompleteInput):
+		case errors.Is(err, core.ErrIncompleteInput):
 			fmt.Fprint(out, "... ")
 
 		default:

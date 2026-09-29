@@ -1,11 +1,11 @@
-package main
+package core
 
 import "testing"
 
 func TestDatabaseRun_InsertsARecordWithPrimaryKey(t *testing.T) {
 	d := NewDatabase("test")
 
-	_, err := d.run(DefineCollectionOperation{
+	_, err := d.Run(DefineCollectionOperation{
 		Name: "user",
 		Data: map[string]DataType{
 			"name": TypeText,
@@ -22,7 +22,7 @@ func TestDatabaseRun_InsertsARecordWithPrimaryKey(t *testing.T) {
 		Record:     Entity{"name": "Matt", "age": 39},
 	}
 
-	result, err := d.run(o)
+	result, err := d.Run(o)
 	if err != nil {
 		t.Fatalf("Failed to insert record, err: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestDatabaseRun_InsertsARecordWithPrimaryKey(t *testing.T) {
 func TestDatabaseRun_InsertRejectsMissingPrimaryKeyField(t *testing.T) {
 	d := NewDatabase("test")
 
-	_, err := d.run(DefineCollectionOperation{
+	_, err := d.Run(DefineCollectionOperation{
 		Name: "user",
 		Data: map[string]DataType{
 			"name": TypeText,
@@ -73,7 +73,7 @@ func TestDatabaseRun_InsertRejectsMissingPrimaryKeyField(t *testing.T) {
 		Record:     Entity{"age": 39},
 	}
 
-	_, err = d.run(o)
+	_, err = d.Run(o)
 	if err == nil {
 		t.Fatal("expected an error for a record missing the primary key field")
 	}
@@ -82,7 +82,7 @@ func TestDatabaseRun_InsertRejectsMissingPrimaryKeyField(t *testing.T) {
 func TestDatabaseRun_InsertRejectsDuplicatePrimaryKey(t *testing.T) {
 	d := NewDatabase("test")
 
-	_, err := d.run(DefineCollectionOperation{
+	_, err := d.Run(DefineCollectionOperation{
 		Name: "user",
 		Data: map[string]DataType{
 			"name": TypeText,
@@ -98,11 +98,11 @@ func TestDatabaseRun_InsertRejectsDuplicatePrimaryKey(t *testing.T) {
 		Record:     Entity{"name": "Matt"},
 	}
 
-	if _, err := d.run(o); err != nil {
+	if _, err := d.Run(o); err != nil {
 		t.Fatalf("Failed to insert first record, err: %v", err)
 	}
 
-	if _, err := d.run(o); err == nil {
+	if _, err := d.Run(o); err == nil {
 		t.Fatal("expected an error for a duplicate primary key")
 	}
 }
@@ -110,7 +110,7 @@ func TestDatabaseRun_InsertRejectsDuplicatePrimaryKey(t *testing.T) {
 func TestDatabaseRun_InsertsARecordWithNoPrimaryKey(t *testing.T) {
 	d := NewDatabase("test")
 
-	_, err := d.run(DefineCollectionOperation{
+	_, err := d.Run(DefineCollectionOperation{
 		Name: "user",
 		Data: map[string]DataType{
 			"name": TypeText,
@@ -125,7 +125,7 @@ func TestDatabaseRun_InsertsARecordWithNoPrimaryKey(t *testing.T) {
 		Record:     Entity{"name": "Matt"},
 	}
 
-	result, err := d.run(o)
+	result, err := d.Run(o)
 	if err != nil {
 		t.Fatalf("Failed to insert record, err: %v", err)
 	}
@@ -153,7 +153,7 @@ func TestDatabaseRun_InsertsARecordWithNoPrimaryKey(t *testing.T) {
 func TestDatabaseRun_InsertAssignsSequentialAutoIncrementIDs(t *testing.T) {
 	d := NewDatabase("test")
 
-	_, err := d.run(DefineCollectionOperation{
+	_, err := d.Run(DefineCollectionOperation{
 		Name:          "user",
 		Data:          map[string]DataType{"id": TypeInt, "name": TypeText},
 		PrimaryKey:    "id",
@@ -163,12 +163,12 @@ func TestDatabaseRun_InsertAssignsSequentialAutoIncrementIDs(t *testing.T) {
 		t.Fatalf("Failed to define collection, err: %v", err)
 	}
 
-	first, err := d.run(InsertOperation{Collection: "user", Record: Entity{"name": "Matt"}})
+	first, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"name": "Matt"}})
 	if err != nil {
 		t.Fatalf("Failed to insert first record, err: %v", err)
 	}
 
-	second, err := d.run(InsertOperation{Collection: "user", Record: Entity{"name": "Sam"}})
+	second, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"name": "Sam"}})
 	if err != nil {
 		t.Fatalf("Failed to insert second record, err: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestDatabaseRun_InsertAssignsSequentialAutoIncrementIDs(t *testing.T) {
 func TestDatabaseRun_InsertRejectsManualValueOnAutoIncrementField(t *testing.T) {
 	d := NewDatabase("test")
 
-	_, err := d.run(DefineCollectionOperation{
+	_, err := d.Run(DefineCollectionOperation{
 		Name:          "user",
 		Data:          map[string]DataType{"id": TypeInt},
 		PrimaryKey:    "id",
@@ -198,7 +198,7 @@ func TestDatabaseRun_InsertRejectsManualValueOnAutoIncrementField(t *testing.T) 
 		t.Fatalf("Failed to define collection, err: %v", err)
 	}
 
-	if _, err := d.run(InsertOperation{Collection: "user", Record: Entity{"id": int64(5)}}); err == nil {
+	if _, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"id": int64(5)}}); err == nil {
 		t.Fatal("expected an error for manually supplying an auto-increment field")
 	}
 }
@@ -211,7 +211,7 @@ func TestDatabaseRun_InsertRejectsUnknownCollection(t *testing.T) {
 		Record:     Entity{"name": "Matt"},
 	}
 
-	if _, err := d.run(o); err == nil {
+	if _, err := d.Run(o); err == nil {
 		t.Fatal("expected an error for inserting into a collection that doesn't exist")
 	}
 }
