@@ -170,7 +170,7 @@ func TestDatabaseRun_DeleteDoesNotReuseIDs(t *testing.T) {
 	}
 
 	for i := 0; i < 3; i++ {
-		if _, err := d.Run(InsertOperation{Collection: "user", Record: Entity{}}); err != nil {
+		if _, err := d.Run(InsertOperation{Collection: "user", Record: Entity{}, Projection: []string{"id"}}); err != nil {
 			t.Fatalf("Failed to insert, err: %v", err)
 		}
 	}
@@ -179,12 +179,12 @@ func TestDatabaseRun_DeleteDoesNotReuseIDs(t *testing.T) {
 		t.Fatalf("Failed to delete, err: %v", err)
 	}
 
-	result, err := d.Run(InsertOperation{Collection: "user", Record: Entity{}})
+	result, err := d.Run(InsertOperation{Collection: "user", Record: Entity{}, Projection: []string{"id"}})
 	if err != nil {
 		t.Fatalf("Failed to insert after delete, err: %v", err)
 	}
 
-	newID := result.(InsertResult).Record["id"]
+	newID := result.(InsertResult).Records[0]["id"]
 
 	if newID != int64(4) {
 		t.Fatalf("expected the next auto-increment id to be 4 (never reusing deleted id 2), got %v", newID)

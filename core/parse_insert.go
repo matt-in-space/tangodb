@@ -37,6 +37,28 @@ func (p *parser) parseInsert() (Operation, error) {
 		return nil, err
 	}
 
+	var projection []string
+
+	switch p.peek().kind {
+	case tokenArrow:
+		p.next()
+
+		projection, err = p.parseProjection()
+		if err != nil {
+			return nil, err
+		}
+
+		// Non-nil means '=>' was used, so `=> {}` stays distinguishable
+		// from no projection at all, same as delete and merge.
+		if projection == nil {
+			projection = []string{}
+		}
+
+	case tokenEOF:
+		// A '=>' projection could still follow the record literal.
+		return nil, ErrIncompleteInput
+	}
+
 	if err := p.expectEndOfStatement(); err != nil {
 		return nil, err
 	}
@@ -44,6 +66,7 @@ func (p *parser) parseInsert() (Operation, error) {
 	return InsertOperation{
 		Collection: collectionName,
 		Record:     record,
+		Projection: projection,
 	}, nil
 }
 

@@ -9,8 +9,8 @@ import (
 func TestRunREPL_DefinesInsertsMergesThenReadsInOneSession(t *testing.T) {
 	in := strings.NewReader(
 		"user { id: int @id name: text age: int }\n" +
-			">> user {id: 1, name: \"Sam\", age: 40}\n" +
-			">> user {id: 2, name: \"Pat\", age: 40}\n" +
+			">> user {id: 1, name: \"Sam\", age: 40};\n" +
+			">> user {id: 2, name: \"Pat\", age: 40};\n" +
 			"~> user(id: 1) {name: \"Matt\"};\n" +
 			"<< user => {*};\n",
 	)
@@ -36,8 +36,8 @@ func TestRunREPL_DefinesInsertsMergesThenReadsInOneSession(t *testing.T) {
 func TestRunREPL_DefinesInsertsDeletesThenReadsInOneSession(t *testing.T) {
 	in := strings.NewReader(
 		"user { id: int @id name: text }\n" +
-			">> user {id: 1, name: \"Matt\"}\n" +
-			">> user {id: 2, name: \"Sam\"}\n" +
+			">> user {id: 1, name: \"Matt\"};\n" +
+			">> user {id: 2, name: \"Sam\"};\n" +
 			"!> user(name: \"Matt\");\n" +
 			"<< user => {*};\n",
 	)
@@ -138,24 +138,42 @@ func TestRunREPL_ReportsAnErrorAndRecovers(t *testing.T) {
 }
 
 func TestRunREPL_DefinesThenInsertsInOneSession(t *testing.T) {
+	in := strings.NewReader("user { id: int @id name: text }\n>> user {id: 1, name: \"Matt\"};\n")
+	var out bytes.Buffer
+
+	RunREPL(in, &out)
+
+	if !strings.Contains(out.String(), prompt+"1\n") {
+		t.Fatalf("expected the insert to print a bare count of 1, got: %q", out.String())
+	}
+}
+
+func TestRunREPL_InsertWithProjectionPrintsTable(t *testing.T) {
+	in := strings.NewReader("user { id: int @id @auto name: text }\n>> user {name: \"Matt\"} => {id, name}\n")
+	var out bytes.Buffer
+
+	RunREPL(in, &out)
+
+	want := prompt + "id  name\n1   Matt\n"
+	if !strings.Contains(out.String(), want) {
+		t.Fatalf("expected output to contain %q, got %q", want, out.String())
+	}
+}
+
+func TestRunREPL_UnterminatedInsertWaitsForMoreInput(t *testing.T) {
 	in := strings.NewReader("user { id: int @id name: text }\n>> user {id: 1, name: \"Matt\"}\n")
 	var out bytes.Buffer
 
 	RunREPL(in, &out)
 
-	output := out.String()
-
-	if !strings.Contains(output, "id:1") {
-		t.Fatalf("expected the inserted record to be printed, got: %q", output)
-	}
-
-	if !strings.Contains(output, "name:Matt") {
-		t.Fatalf("expected the inserted record to be printed, got: %q", output)
+	output := strings.TrimRight(out.String(), "\n")
+	if !strings.HasSuffix(output, continuationPrompt) {
+		t.Fatalf("expected the REPL to still be waiting on a continuation prompt, got: %q", out.String())
 	}
 }
 
 func TestRunREPL_InsertReportsDuplicateKeyError(t *testing.T) {
-	in := strings.NewReader("user { id: int @id }\n>> user {id: 1}\n>> user {id: 1}\n")
+	in := strings.NewReader("user { id: int @id }\n>> user {id: 1};\n>> user {id: 1};\n")
 	var out bytes.Buffer
 
 	RunREPL(in, &out)
@@ -168,7 +186,7 @@ func TestRunREPL_InsertReportsDuplicateKeyError(t *testing.T) {
 }
 
 func TestRunREPL_InsertReportsUnknownCollectionError(t *testing.T) {
-	in := strings.NewReader(">> user {id: 1}\n")
+	in := strings.NewReader(">> user {id: 1};\n")
 	var out bytes.Buffer
 
 	RunREPL(in, &out)
@@ -183,8 +201,8 @@ func TestRunREPL_InsertReportsUnknownCollectionError(t *testing.T) {
 func TestRunREPL_DefinesInsertsThenReadsInOneSession(t *testing.T) {
 	in := strings.NewReader(
 		"user { id: int @id name: text }\n" +
-			">> user {id: 1, name: \"Matt\"}\n" +
-			">> user {id: 2, name: \"Sam\"}\n" +
+			">> user {id: 1, name: \"Matt\"};\n" +
+			">> user {id: 2, name: \"Sam\"};\n" +
 			"<< user(name: \"Sam\") => {id, name}\n",
 	)
 	var out bytes.Buffer
@@ -209,8 +227,8 @@ func TestRunREPL_DefinesInsertsThenReadsInOneSession(t *testing.T) {
 func TestRunREPL_BareReadWithSemicolonReturnsCountOnly(t *testing.T) {
 	in := strings.NewReader(
 		"user { id: int @id name: text }\n" +
-			">> user {id: 1, name: \"Matt\"}\n" +
-			">> user {id: 2, name: \"Sam\"}\n" +
+			">> user {id: 1, name: \"Matt\"};\n" +
+			">> user {id: 2, name: \"Sam\"};\n" +
 			"<< user;\n",
 	)
 	var out bytes.Buffer
@@ -231,8 +249,8 @@ func TestRunREPL_BareReadWithSemicolonReturnsCountOnly(t *testing.T) {
 func TestRunREPL_WildcardProjectionReturnsEverythingExplicitly(t *testing.T) {
 	in := strings.NewReader(
 		"user { id: int @id name: text }\n" +
-			">> user {id: 1, name: \"Matt\"}\n" +
-			">> user {id: 2, name: \"Sam\"}\n" +
+			">> user {id: 1, name: \"Matt\"};\n" +
+			">> user {id: 2, name: \"Sam\"};\n" +
 			"<< user => {*};\n",
 	)
 	var out bytes.Buffer
@@ -273,5 +291,17 @@ func TestRunREPL_ReadReportsNoRecordsFound(t *testing.T) {
 
 	if !strings.Contains(output, "no records found") {
 		t.Fatalf("expected \"no records found\", got: %q", output)
+	}
+}
+
+func TestRunREPL_PrintsSchemaWithoutWrapper(t *testing.T) {
+	in := strings.NewReader("user { id: int @id name: text }\n")
+	var out bytes.Buffer
+
+	RunREPL(in, &out)
+
+	want := prompt + "user {\n  id: int @id\n  name: text\n}\n"
+	if !strings.Contains(out.String(), want) {
+		t.Fatalf("expected output to contain %q, got %q", want, out.String())
 	}
 }

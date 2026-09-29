@@ -14,6 +14,10 @@ type DefineCollectionResult struct {
 	Collection Collection
 }
 
+func (r DefineCollectionResult) String() string {
+	return r.Collection.String()
+}
+
 func (db *Database) defineCollection(name string, fields map[string]DataType, primaryKey string, autoFields map[string]bool, optional map[string]bool) (OperationResult, error) {
 	for field := range optional {
 		if _, ok := fields[field]; !ok {

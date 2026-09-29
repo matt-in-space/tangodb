@@ -152,7 +152,7 @@ Four kinds, distinguished by leading symbol/keyword:
 The record literal — the same nested-object-literal shape reads return — comes directly after the collection name, no `=>` in front of it:
 
 ```
->> user {id: 1, name: "Matt", age: 39, address: {street: "123 Main St", city: "Minneapolis"}}
+>> user {id: 1, name: "Matt", age: 39, address: {street: "123 Main St", city: "Minneapolis"}};
 ```
 
 This keeps `=>` meaning one single thing everywhere in the language: "the shape of what comes back," same job it does in a read's projection. `(...)`, correspondingly, always means "identify an existing record" (a read/delete/merge filter) — insert has nothing to identify, so it doesn't use `(...)` at all.
@@ -162,13 +162,15 @@ Batch form — separate with &:
 ```
 >> user
   {id: 1, name: "Matt", address: {city: "Minneapolis"}} &
-  {id: 2, name: "Sam", address: {city: "St. Paul"}}
+  {id: 2, name: "Sam", address: {city: "St. Paul"}};
 ```
 
-**Returning a value from the write** — `=>` projects the result, the same meaning it has everywhere else:
+**Return value** follows the same count-vs-`RETURNING` convention as delete and merge: with no `=>`, an insert returns a bare-integer count (`1`, or the number of records in a batch). With `=>`, it also returns the stored records, limited to the projected fields and including any values the database assigned. Because `=>` may follow, a bare insert needs a `;` to be complete.
 
 ```
->> user {name: "Matt", age: 39} => {id}
+>> user {name: "Matt", age: 39};              -- returns 1 (just the count)
+>> user {name: "Matt", age: 39} => {id}       -- returns the generated id
+>> user {name: "Matt", age: 39} => {*}        -- returns the stored record, every field
 ```
 
 ### Merge

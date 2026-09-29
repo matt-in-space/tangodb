@@ -7,7 +7,7 @@ import (
 )
 
 func TestParseInsert_ParsesFlatValues(t *testing.T) {
-	o, err := ParseInsert(`>> user {id: 1, name: "Matt", age: 39}`)
+	o, err := ParseInsert(`>> user {id: 1, name: "Matt", age: 39};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -30,7 +30,7 @@ func TestParseInsert_ParsesFlatValues(t *testing.T) {
 }
 
 func TestParseInsert_ParsesFloats(t *testing.T) {
-	o, err := ParseInsert(`>> product {price: 9.99}`)
+	o, err := ParseInsert(`>> product {price: 9.99};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestParseInsert_ParsesFloats(t *testing.T) {
 }
 
 func TestParseInsert_AllowsTrailingComma(t *testing.T) {
-	o, err := ParseInsert(`>> user {id: 1,}`)
+	o, err := ParseInsert(`>> user {id: 1,};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestParseInsert_AllowsTrailingComma(t *testing.T) {
 }
 
 func TestParseInsert_AllowsEmptyRecord(t *testing.T) {
-	o, err := ParseInsert(`>> user {}`)
+	o, err := ParseInsert(`>> user {};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestParseInsert_AllowsEmptyRecord(t *testing.T) {
 }
 
 func TestParseInsert_UnescapesStrings(t *testing.T) {
-	o, err := ParseInsert(`>> user {name: "say \"hi\" \\ bye"}`)
+	o, err := ParseInsert(`>> user {name: "say \"hi\" \\ bye"};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -86,12 +86,12 @@ func TestParseInsert_ToleratesTrailingSemicolon(t *testing.T) {
 }
 
 func TestParseInsert_CommasAreOptional(t *testing.T) {
-	withoutCommas, err := ParseInsert(`>> user {id: 1 name: "Matt"}`)
+	withoutCommas, err := ParseInsert(`>> user {id: 1 name: "Matt"};`)
 	if err != nil {
 		t.Fatalf("Failed to parse without commas, err: %v", err)
 	}
 
-	withCommas, err := ParseInsert(`>> user {id: 1, name: "Matt"}`)
+	withCommas, err := ParseInsert(`>> user {id: 1, name: "Matt"};`)
 	if err != nil {
 		t.Fatalf("Failed to parse with commas, err: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestParseInsert_CommasAreOptional(t *testing.T) {
 }
 
 func TestParseInsert_AllowsMixedAndTrailingCommas(t *testing.T) {
-	o, err := ParseInsert(`>> user {id: 1, name: "Matt" age: 39,}`)
+	o, err := ParseInsert(`>> user {id: 1, name: "Matt" age: 39,};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -113,7 +113,7 @@ func TestParseInsert_AllowsMixedAndTrailingCommas(t *testing.T) {
 }
 
 func TestParseInsert_CommaInsideStringIsPartOfTheValue(t *testing.T) {
-	o, err := ParseInsert(`>> user {name: "Smith, Matt"}`)
+	o, err := ParseInsert(`>> user {name: "Smith, Matt"};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestParseInsert_RejectsIncompleteWithNoRecordLiteral(t *testing.T) {
 }
 
 func TestParse_DispatchesToInsert(t *testing.T) {
-	o, err := Parse(`>> user {id: 1}`)
+	o, err := Parse(`>> user {id: 1};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -153,7 +153,7 @@ func TestParse_DispatchesToInsert(t *testing.T) {
 }
 
 func TestParseInsert_ParsesBooleans(t *testing.T) {
-	o, err := ParseInsert(`>> user {active: true archived: false}`)
+	o, err := ParseInsert(`>> user {active: true archived: false};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestParseInsert_ParsesBooleans(t *testing.T) {
 }
 
 func TestParseInsert_QuotedTrueIsAString(t *testing.T) {
-	o, err := ParseInsert(`>> user {active: "true"}`)
+	o, err := ParseInsert(`>> user {active: "true"};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestParseInsert_QuotedTrueIsAString(t *testing.T) {
 }
 
 func TestParseInsert_RejectsOtherBareWordsAsValues(t *testing.T) {
-	_, err := ParseInsert(`>> user {active: yes}`)
+	_, err := ParseInsert(`>> user {active: yes};`)
 	if err == nil {
 		t.Fatal("expected an error for a bare word value")
 	}
@@ -191,7 +191,7 @@ func TestParseInsert_RejectsOtherBareWordsAsValues(t *testing.T) {
 }
 
 func TestParseInsert_ParsesNull(t *testing.T) {
-	o, err := ParseInsert(`>> user {nickname: null}`)
+	o, err := ParseInsert(`>> user {nickname: null};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -207,12 +207,70 @@ func TestParseInsert_ParsesNull(t *testing.T) {
 }
 
 func TestParseInsert_QuotedNullIsAString(t *testing.T) {
-	o, err := ParseInsert(`>> user {nickname: "null"}`)
+	o, err := ParseInsert(`>> user {nickname: "null"};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
 
 	if o.Record["nickname"] != "null" {
 		t.Fatalf("expected the string %q, got %v (%T)", "null", o.Record["nickname"], o.Record["nickname"])
+	}
+}
+
+func TestParseInsert_NoProjectionIsNil(t *testing.T) {
+	o, err := ParseInsert(`>> user {id: 1};`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if o.Projection != nil {
+		t.Fatalf("expected nil projection, got %v", o.Projection)
+	}
+}
+
+func TestParseInsert_ParsesProjection(t *testing.T) {
+	o, err := ParseInsert(`>> user {name: "Matt"} => {id, name}`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if !reflect.DeepEqual(o.Projection, []string{"id", "name"}) {
+		t.Fatalf("expected projection [id name], got %v", o.Projection)
+	}
+}
+
+func TestParseInsert_ParsesWildcardProjection(t *testing.T) {
+	o, err := ParseInsert(`>> user {name: "Matt"} => {*};`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if !reflect.DeepEqual(o.Projection, []string{"*"}) {
+		t.Fatalf("expected projection [*], got %v", o.Projection)
+	}
+}
+
+func TestParseInsert_EmptyProjectionIsNotNil(t *testing.T) {
+	o, err := ParseInsert(`>> user {name: "Matt"} => {}`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if o.Projection == nil {
+		t.Fatal("expected a non-nil empty projection for `=> {}`")
+	}
+}
+
+func TestParseInsert_UnterminatedRecordIsIncomplete(t *testing.T) {
+	if _, err := ParseInsert(`>> user {name: "Matt"}`); !errors.Is(err, ErrIncompleteInput) {
+		t.Fatalf("expected ErrIncompleteInput, got %v", err)
+	}
+}
+
+func TestParseInsert_RejectsWildcardCombinedWithFields(t *testing.T) {
+	for _, input := range []string{`>> user {name: "Matt"} => {*, id}`, `>> user {name: "Matt"} => {id, *}`} {
+		if _, err := ParseInsert(input); err == nil {
+			t.Fatalf("expected an error for %q", input)
+		}
 	}
 }

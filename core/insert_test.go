@@ -20,6 +20,7 @@ func TestDatabaseRun_InsertsARecordWithPrimaryKey(t *testing.T) {
 	o := InsertOperation{
 		Collection: "user",
 		Record:     Entity{"name": "Matt", "age": int64(39)},
+		Projection: []string{"*"},
 	}
 
 	result, err := d.Run(o)
@@ -32,8 +33,8 @@ func TestDatabaseRun_InsertsARecordWithPrimaryKey(t *testing.T) {
 		t.Fatal("Record was not returned")
 	}
 
-	if insertResult.Record["name"] != "Matt" {
-		t.Fatalf("expected returned record name %q, got %q", "Matt", insertResult.Record["name"])
+	if insertResult.Records[0]["name"] != "Matt" {
+		t.Fatalf("expected returned record name %q, got %q", "Matt", insertResult.Records[0]["name"])
 	}
 
 	collection := d.collections["user"]
@@ -128,6 +129,7 @@ func TestDatabaseRun_InsertsARecordWithNoPrimaryKey(t *testing.T) {
 	o := InsertOperation{
 		Collection: "user",
 		Record:     Entity{"name": "Matt"},
+		Projection: []string{"*"},
 	}
 
 	result, err := d.Run(o)
@@ -140,8 +142,8 @@ func TestDatabaseRun_InsertsARecordWithNoPrimaryKey(t *testing.T) {
 		t.Fatal("Record was not returned")
 	}
 
-	if insertResult.Record["name"] != "Matt" {
-		t.Fatalf("expected returned record name %q, got %q", "Matt", insertResult.Record["name"])
+	if insertResult.Records[0]["name"] != "Matt" {
+		t.Fatalf("expected returned record name %q, got %q", "Matt", insertResult.Records[0]["name"])
 	}
 
 	collection := d.collections["user"]
@@ -168,18 +170,18 @@ func TestDatabaseRun_InsertAssignsSequentialAutoIncrementIDs(t *testing.T) {
 		t.Fatalf("Failed to define collection, err: %v", err)
 	}
 
-	first, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"name": "Matt"}})
+	first, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"name": "Matt"}, Projection: []string{"id"}})
 	if err != nil {
 		t.Fatalf("Failed to insert first record, err: %v", err)
 	}
 
-	second, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"name": "Sam"}})
+	second, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"name": "Sam"}, Projection: []string{"id"}})
 	if err != nil {
 		t.Fatalf("Failed to insert second record, err: %v", err)
 	}
 
-	firstID := first.(InsertResult).Record["id"]
-	secondID := second.(InsertResult).Record["id"]
+	firstID := first.(InsertResult).Records[0]["id"]
+	secondID := second.(InsertResult).Records[0]["id"]
 
 	if firstID != int64(1) {
 		t.Fatalf("expected first id 1, got %v", firstID)
@@ -218,5 +220,66 @@ func TestDatabaseRun_InsertRejectsUnknownCollection(t *testing.T) {
 
 	if _, err := d.Run(o); err == nil {
 		t.Fatal("expected an error for inserting into a collection that doesn't exist")
+	}
+}
+
+func TestInsert_WithoutProjectionReturnsCount(t *testing.T) {
+	d := NewDatabase("test")
+	runStatements(t, d, `user { id: int @id name: text }`)
+
+	result := runStatements(t, d, `>> user {id: 1 name: "Matt"};`).(InsertResult)
+
+	if result.String() != "1" {
+		t.Fatalf("expected %q, got %q", "1", result.String())
+	}
+
+	if result.Records != nil {
+		t.Fatalf("expected no records without a projection, got %v", result.Records)
+	}
+
+	expectCount(t, d, `<< user;`, "1")
+}
+
+func TestInsert_ProjectionReturnsGeneratedID(t *testing.T) {
+	d := NewDatabase("test")
+	runStatements(t, d, `user { id: int @id @auto name: text }`)
+
+	got := runStatements(t, d, `>> user {name: "Matt"} => {id}`).(InsertResult).String()
+
+	want := "id\n1"
+	if got != want {
+		t.Fatalf("expected:\n%s\ngot:\n%s", want, got)
+	}
+}
+
+func TestInsert_WildcardProjectionShowsStoredRecord(t *testing.T) {
+	d := NewDatabase("test")
+	runStatements(t, d, `user { id: int @id name: text nickname: text @optional }`)
+
+	got := runStatements(t, d, `>> user {id: 1 name: "Matt"} => {*}`).(InsertResult).String()
+
+	want := "id  name  nickname\n1   Matt  null"
+	if got != want {
+		t.Fatalf("expected:\n%s\ngot:\n%s", want, got)
+	}
+}
+
+func TestInsert_UnknownProjectionFieldStoresNothing(t *testing.T) {
+	d := NewDatabase("test")
+	runStatements(t, d, `user { id: int @id @auto name: text }`)
+
+	got := runExpectingError(t, d, `>> user {name: "Matt"} => {nope}`)
+
+	want := `field "nope" not found in schema for collection "user"`
+	if got != want {
+		t.Fatalf("expected error %q, got %q", want, got)
+	}
+
+	expectCount(t, d, `<< user;`, "0")
+
+	// The failed insert must not have used up an auto-increment value either.
+	got = runStatements(t, d, `>> user {name: "Matt"} => {id}`).(InsertResult).String()
+	if got != "id\n1" {
+		t.Fatalf("expected id 1, got:\n%s", got)
 	}
 }

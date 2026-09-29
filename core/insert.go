@@ -5,13 +5,16 @@ import "fmt"
 type InsertOperation struct {
 	Collection string
 	Record     Entity
+	Projection []string
 }
 
 type InsertResult struct {
-	Record Entity
+	Count      int
+	Projection []string
+	Records    []Entity
 }
 
-func (db *Database) insert(collectionName string, record Entity) (OperationResult, error) {
+func (db *Database) insert(collectionName string, record Entity, projection []string) (OperationResult, error) {
 	collection, ok := db.collections[collectionName]
 	if !ok {
 		return nil, fmt.Errorf("collection %q does not exist", collectionName)
@@ -37,6 +40,18 @@ func (db *Database) insert(collectionName string, record Entity) (OperationResul
 
 	if err := validateRequired(collection, record); err != nil {
 		return nil, err
+	}
+
+	wantRecords := projection != nil
+
+	if wantRecords {
+		projection = expandProjection(collection, projection)
+
+		for _, field := range projection {
+			if _, ok := collection.data[field]; !ok {
+				return nil, fmt.Errorf("field %q not found in schema for collection %q", field, collectionName)
+			}
+		}
 	}
 
 	if manualKey {
@@ -69,5 +84,16 @@ func (db *Database) insert(collectionName string, record Entity) (OperationResul
 		collection.primaryIndex[record[collection.primaryKey]] = id
 	}
 
-	return InsertResult{Record: record}, nil
+	result := InsertResult{Count: 1}
+
+	if wantRecords {
+		result.Projection = projection
+		result.Records = []Entity{record}
+	}
+
+	return result, nil
+}
+
+func (r InsertResult) String() string {
+	return renderCountOrTable(r.Count, r.Projection, r.Records)
 }

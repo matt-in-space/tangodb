@@ -30,10 +30,10 @@ tango> user {
   ...>   id: int @id
   ...>   name: text
   ...> }
-{user {
+user {
   id: int @id
   name: text
-}}
+}
 ```
 
 **Types:** `int`, `float`, `text`, `bool` (case-insensitive).
@@ -44,20 +44,22 @@ tango> user {
 
 ```
 tango> user { id: int @id @auto name: text }
-{user {
+user {
   id: int @id @auto
   name: text
-}}
+}
 ```
 
-With `@auto`, insert must *not* supply that field — the database assigns it and hands the value back in the result:
+With `@auto`, insert must *not* supply that field — the database assigns it. Ask for it back with `=> {id}` (see [Inserting a record](#inserting-a-record)):
 
 ```
-tango> >> user {name: "Matt"}
-{map[id:1 name:Matt]}
-tango> >> user {name: "Sam"}
-{map[id:2 name:Sam]}
-tango> >> user {id: 99, name: "nope"}
+tango> >> user {name: "Matt"} => {id}
+id
+1
+tango> >> user {name: "Sam"} => {id}
+id
+2
+tango> >> user {id: 99, name: "nope"};
 error: field "id" is auto-increment and must not be supplied for collection "user"
 ```
 
@@ -65,15 +67,17 @@ error: field "id" is auto-increment and must not be supplied for collection "use
 
 ```
 tango> ticket { code: text @id number: int @auto title: text }
-{ticket {
+ticket {
   code: text @id
   number: int @auto
   title: text
-}}
-tango> >> ticket {code: "A" title: "first"}
-{map[code:A number:1 title:first]}
-tango> >> ticket {code: "B" title: "second"}
-{map[code:B number:2 title:second]}
+}
+tango> >> ticket {code: "A" title: "first"} => {code number}
+code  number
+A     1
+tango> >> ticket {code: "B" title: "second"} => {code number}
+code  number
+B     2
 ```
 
 The database is the only thing that ever writes an `@auto` field — insert can't supply it (not even as `null`), and a merge payload can't set it:
@@ -89,17 +93,27 @@ A collection can also be written on a single line:
 
 ```
 tango> user { name: text }
-{user {
+user {
   name: text
-}}
+}
 ```
 
 ## Inserting a record
 
 ```
-tango> >> user {id: 1, name: "Matt"}
-{map[id:1 name:Matt]}
+tango> >> user {id: 1, name: "Matt"};
+1
 ```
+
+An insert returns a bare count — `1` — the same "count by default" rule read, delete, and merge follow (and what a batch insert will report as more than one). To get the stored record back, add a projection with `=>`; it reflects what was actually stored, including any values the database assigned:
+
+```
+tango> >> user {id: 2, name: "Sam"} => {*}
+id  name
+2   Sam
+```
+
+Because a `=>` can follow the record, a bare insert needs a `;` to tell the REPL it's finished — without one, it waits for more input, the same as delete and merge.
 
 The record literal comes directly after the collection name — no `=>` before it. That keeps `=>`'s meaning consistent across the whole language: it always means "the shape of what comes back," the same job it does in a read's projection. `(...)`, in turn, always means "identify an existing record" (a read/delete/merge filter) — never "here are values for a new one." Insert has no existing record to identify, so it doesn't use `(...)` at all.
 
@@ -111,20 +125,20 @@ Every value must match its field's declared type **exactly**, and a literal's ty
 
 ```
 tango> item { id: int @id price: float }
-{item {
+item {
   id: int @id
   price: float
-}}
-tango> >> item {id: 1 price: 10}
+}
+tango> >> item {id: 1 price: 10};
 error: field "price": expected float, got int
-tango> >> item {id: 1 price: 10.0}
-{map[id:1 price:10]}
+tango> >> item {id: 1 price: 10.0};
+1
 ```
 
 A field the schema doesn't declare is rejected too, so a typo can't silently vanish:
 
 ```
-tango> >> user {id: 1 nmae: "Matt"}
+tango> >> user {id: 1 nmae: "Matt"};
 error: field "nmae" not found in schema for collection "user"
 ```
 
@@ -137,7 +151,7 @@ Validation is all-or-nothing: the whole statement is checked before anything is 
 Every declared field is **required** unless it's marked `@optional`. An insert that leaves out a required field fails:
 
 ```
-tango> >> user {id: 2}
+tango> >> user {id: 2};
 error: field "name" is required for collection "user"
 ```
 
@@ -145,15 +159,15 @@ error: field "name" is required for collection "user"
 
 ```
 tango> profile { id: int @id name: text nickname: text @optional }
-{profile {
+profile {
   id: int @id
   name: text
   nickname: text @optional
-}}
-tango> >> profile {id: 1 name: "Matt"}
-{map[id:1 name:Matt]}
-tango> >> profile {id: 2 name: "Sam" nickname: "S"}
-{map[id:2 name:Sam nickname:S]}
+}
+tango> >> profile {id: 1 name: "Matt"};
+1
+tango> >> profile {id: 2 name: "Sam" nickname: "S"};
+1
 tango> << profile => {*};
 id  name  nickname
 1   Matt  null
@@ -183,14 +197,14 @@ error: @id field "id" cannot be @optional
 Commas between fields are optional — here and everywhere else a list appears (schema blocks, filters, projections). Use them when they make a one-liner easier to read, or leave them out, especially across multiple lines. These are all the same insert:
 
 ```
->> user {id: 1, name: "Matt"}
+>> user {id: 1, name: "Matt"};
 
->> user {id: 1 name: "Matt"}
+>> user {id: 1 name: "Matt"};
 
 >> user {
   id: 1
   name: "Matt"
-}
+};
 ```
 
 A comma inside a quoted string is part of the value, not a separator (`"Smith, Matt"`).
@@ -198,16 +212,16 @@ A comma inside a quoted string is part of the value, not a separator (`"Smith, M
 Inserting into a collection with a declared `@id` field enforces it: the record must include that field, and a duplicate value is rejected rather than overwritten:
 
 ```
-tango> >> user {id: 1 name: "Matt"}
-{map[id:1 name:Matt]}
-tango> >> user {id: 1 name: "Matt"}
+tango> >> user {id: 1 name: "Matt"};
+1
+tango> >> user {id: 1 name: "Matt"};
 error: duplicate primary key 1 for collection "user"
 ```
 
 Inserting into a collection that hasn't been defined is also an error:
 
 ```
-tango> >> ghost {id: 1}
+tango> >> ghost {id: 1};
 error: collection "ghost" does not exist
 ```
 
@@ -288,7 +302,7 @@ id  name
 2   Sam
 ```
 
-`;` also works after a filter with no projection (`<< user(name: "Matt");`), and is harmlessly tolerated as an optional trailing marker at the end of any statement (`>> user {id: 1};`, `user { id: int };`) — it's never required except to resolve this one ambiguity.
+`;` also works after a filter with no projection (`<< user(name: "Matt");`), and is harmlessly tolerated as an optional trailing marker at the end of any statement (`user { id: int };`). It's required wherever a statement could still continue with `=>` — a bare `<< user`, and any insert, delete, or merge without a projection.
 
 ## Deleting records
 
@@ -381,4 +395,4 @@ id  name
 
 ## Status
 
-The REPL currently supports defining a collection, inserting a flat record, reading records back with a basic equality filter and projection (a `*` wildcard for every field, or omit the projection entirely for just a count), deleting records with a mandatory filter and the same count-vs-returning shape, and merging (bulk partial-updating) records the same way. Not yet supported: nested/embedded values (in records, filters, or projections), the write's return-projection clause (`=> {id}`), batch inserts (`&`), and pipeline stages like `order`/`limit` — see `QUERY_LANGUAGE.md` for the full target language.
+The REPL currently supports defining a collection, inserting a flat record (a count by default, or the stored record with `=>`), reading records back with a basic equality filter and projection (a `*` wildcard for every field, or omit the projection entirely for just a count), deleting records with a mandatory filter and the same count-vs-returning shape, and merging (bulk partial-updating) records the same way. Not yet supported: nested/embedded values (in records, filters, or projections), batch inserts (`&`), and pipeline stages like `order`/`limit` — see `QUERY_LANGUAGE.md` for the full target language.

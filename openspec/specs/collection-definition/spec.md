@@ -66,3 +66,16 @@ The system SHALL reject a declaration that marks a field both `@auto` and `@opti
 #### Scenario: Auto and optional together
 - **WHEN** a client sends `ticket { code: text @id number: int @auto @optional }`
 - **THEN** the system returns `@auto field "number" cannot be @optional` and defines no collection
+
+### Requirement: Defining a collection returns its schema
+The system SHALL, when a collection is defined, return the collection's schema written in the schema syntax, with no surrounding characters beyond the schema itself.
+
+#### Scenario: Schema output has no wrapper
+- **WHEN** a client sends `user { id: int @id name: text }`
+- **THEN** the system prints exactly:
+  ```
+  user {
+    id: int @id
+    name: text
+  }
+  ```
