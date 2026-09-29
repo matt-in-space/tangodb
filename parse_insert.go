@@ -41,8 +41,8 @@ func (p *parser) parseInsert() (Operation, error) {
 		return nil, err
 	}
 
-	if p.peek().kind != tokenEOF {
-		return nil, fmt.Errorf("unexpected input after insert statement: %q", p.peek().value)
+	if err := p.expectEndOfStatement(); err != nil {
+		return nil, err
 	}
 
 	return InsertOperation{

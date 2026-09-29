@@ -90,9 +90,64 @@ func TestParseDefineCollection_RejectsMultiplePrimaryKeys(t *testing.T) {
 	}
 }
 
+func TestParseDefineCollection_ParsesAutoIncrement(t *testing.T) {
+	o, err := ParseDefineCollection(`user { id: int @id @auto }`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if !o.AutoIncrement {
+		t.Fatal("expected AutoIncrement to be true")
+	}
+
+	if o.PrimaryKey != "id" {
+		t.Fatalf("expected primary key %q, got %q", "id", o.PrimaryKey)
+	}
+}
+
+func TestParseDefineCollection_AllowsAutoBeforeID(t *testing.T) {
+	o, err := ParseDefineCollection(`user { id: int @auto @id }`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if !o.AutoIncrement {
+		t.Fatal("expected AutoIncrement to be true")
+	}
+}
+
+func TestParseDefineCollection_RejectsAutoWithoutID(t *testing.T) {
+	if _, err := ParseDefineCollection(`user { id: int @auto }`); err == nil {
+		t.Fatal("expected an error for @auto without @id")
+	}
+}
+
+func TestParseDefineCollection_RejectsAutoOnNonIntField(t *testing.T) {
+	if _, err := ParseDefineCollection(`user { id: text @id @auto }`); err == nil {
+		t.Fatal("expected an error for @auto on a non-int field")
+	}
+}
+
+func TestParseDefineCollection_RejectsDuplicateAuto(t *testing.T) {
+	if _, err := ParseDefineCollection(`user { id: int @id @auto @auto }`); err == nil {
+		t.Fatal("expected an error for a duplicate @auto annotation")
+	}
+}
+
 func TestParseDefineCollection_RejectsMissingClosingBrace(t *testing.T) {
 	if _, err := ParseDefineCollection(`user { id: int`); err == nil {
 		t.Fatal("expected an error for a missing closing brace")
+	}
+}
+
+func TestParseDefineCollection_ToleratesTrailingSemicolon(t *testing.T) {
+	o, err := ParseDefineCollection(`user { id: int };`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if o.Name != "user" {
+		t.Fatalf("expected name %q, got %q", "user", o.Name)
 	}
 }
 

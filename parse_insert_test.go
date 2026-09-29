@@ -73,6 +73,17 @@ func TestParseInsert_UnescapesStrings(t *testing.T) {
 	}
 }
 
+func TestParseInsert_ToleratesTrailingSemicolon(t *testing.T) {
+	o, err := ParseInsert(`>> user => {id: 1};`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if o.Record["id"] != int64(1) {
+		t.Fatalf("expected id 1, got %v", o.Record["id"])
+	}
+}
+
 func TestParseInsert_RejectsMissingComma(t *testing.T) {
 	if _, err := ParseInsert(`>> user => {id: 1 name: "Matt"}`); err == nil {
 		t.Fatal("expected an error for a missing comma between fields")

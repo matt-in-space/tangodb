@@ -150,6 +150,59 @@ func TestDatabaseRun_InsertsARecordWithNoPrimaryKey(t *testing.T) {
 	}
 }
 
+func TestDatabaseRun_InsertAssignsSequentialAutoIncrementIDs(t *testing.T) {
+	d := NewDatabase("test")
+
+	_, err := d.run(DefineCollectionOperation{
+		Name:          "user",
+		Data:          map[string]DataType{"id": TypeInt, "name": TypeText},
+		PrimaryKey:    "id",
+		AutoIncrement: true,
+	})
+	if err != nil {
+		t.Fatalf("Failed to define collection, err: %v", err)
+	}
+
+	first, err := d.run(InsertOperation{Collection: "user", Record: Entity{"name": "Matt"}})
+	if err != nil {
+		t.Fatalf("Failed to insert first record, err: %v", err)
+	}
+
+	second, err := d.run(InsertOperation{Collection: "user", Record: Entity{"name": "Sam"}})
+	if err != nil {
+		t.Fatalf("Failed to insert second record, err: %v", err)
+	}
+
+	firstID := first.(InsertResult).Record["id"]
+	secondID := second.(InsertResult).Record["id"]
+
+	if firstID != int64(1) {
+		t.Fatalf("expected first id 1, got %v", firstID)
+	}
+
+	if secondID != int64(2) {
+		t.Fatalf("expected second id 2, got %v", secondID)
+	}
+}
+
+func TestDatabaseRun_InsertRejectsManualValueOnAutoIncrementField(t *testing.T) {
+	d := NewDatabase("test")
+
+	_, err := d.run(DefineCollectionOperation{
+		Name:          "user",
+		Data:          map[string]DataType{"id": TypeInt},
+		PrimaryKey:    "id",
+		AutoIncrement: true,
+	})
+	if err != nil {
+		t.Fatalf("Failed to define collection, err: %v", err)
+	}
+
+	if _, err := d.run(InsertOperation{Collection: "user", Record: Entity{"id": int64(5)}}); err == nil {
+		t.Fatal("expected an error for manually supplying an auto-increment field")
+	}
+}
+
 func TestDatabaseRun_InsertRejectsUnknownCollection(t *testing.T) {
 	d := NewDatabase("test")
 

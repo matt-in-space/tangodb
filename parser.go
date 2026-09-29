@@ -32,6 +32,9 @@ func Parse(input string) (Operation, error) {
 	case p.peek().kind == tokenInsertOp:
 		return p.parseInsert()
 
+	case p.peek().kind == tokenReadOp:
+		return p.parseRead()
+
 	case p.peek().kind == tokenIdent && p.peekAt(1).kind == tokenLBrace:
 		return p.parseDefineCollection()
 
@@ -80,4 +83,22 @@ func (p *parser) expectIdent() (string, error) {
 		return "", fmt.Errorf("expected identifier, got %q", p.peek().value)
 	}
 	return p.next().value, nil
+}
+
+// expectEndOfStatement tolerates one optional trailing ';' and then
+// requires nothing but EOF. ';' is never required — a statement that's
+// already structurally complete ends the same way with or without one —
+// but some statements (like a bare read with no filter or projection)
+// use it as an explicit "no more is coming" marker to resolve what would
+// otherwise look like an incomplete statement.
+func (p *parser) expectEndOfStatement() error {
+	if p.peek().kind == tokenSemicolon {
+		p.next()
+	}
+
+	if p.peek().kind != tokenEOF {
+		return fmt.Errorf("unexpected input after statement: %q", p.peek().value)
+	}
+
+	return nil
 }

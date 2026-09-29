@@ -33,6 +33,7 @@ func (p *parser) parseDefineCollection() (Operation, error) {
 
 	data := map[string]DataType{}
 	primaryKey := ""
+	autoIncrement := false
 
 	for p.peek().kind != tokenRBrace {
 		fieldName, err := p.expectIdent()
@@ -56,7 +57,10 @@ func (p *parser) parseDefineCollection() (Operation, error) {
 
 		data[fieldName] = dataType
 
-		if p.peek().kind == tokenAt {
+		fieldIsID := false
+		fieldIsAuto := false
+
+		for p.peek().kind == tokenAt {
 			p.next()
 
 			annotation, err := p.expectIdent()
@@ -64,15 +68,39 @@ func (p *parser) parseDefineCollection() (Operation, error) {
 				return nil, err
 			}
 
-			if annotation != "id" {
+			switch annotation {
+			case "id":
+				if fieldIsID {
+					return nil, fmt.Errorf("duplicate @id annotation on field %q", fieldName)
+				}
+				fieldIsID = true
+
+			case "auto":
+				if fieldIsAuto {
+					return nil, fmt.Errorf("duplicate @auto annotation on field %q", fieldName)
+				}
+				fieldIsAuto = true
+
+			default:
 				return nil, fmt.Errorf("unknown annotation %q on field %q", annotation, fieldName)
 			}
+		}
 
+		if fieldIsID {
 			if primaryKey != "" {
 				return nil, fmt.Errorf("multiple @id fields declared (%q and %q)", primaryKey, fieldName)
 			}
-
 			primaryKey = fieldName
+		}
+
+		if fieldIsAuto {
+			if !fieldIsID {
+				return nil, fmt.Errorf("@auto can only be used on the @id field (field %q)", fieldName)
+			}
+			if dataType != TypeInt {
+				return nil, fmt.Errorf("@auto requires an int field (field %q)", fieldName)
+			}
+			autoIncrement = true
 		}
 	}
 
@@ -80,14 +108,15 @@ func (p *parser) parseDefineCollection() (Operation, error) {
 		return nil, err
 	}
 
-	if p.peek().kind != tokenEOF {
-		return nil, fmt.Errorf("unexpected input after collection definition: %q", p.peek().value)
+	if err := p.expectEndOfStatement(); err != nil {
+		return nil, err
 	}
 
 	return DefineCollectionOperation{
-		Name:       name,
-		Data:       data,
-		PrimaryKey: primaryKey,
+		Name:          name,
+		Data:          data,
+		PrimaryKey:    primaryKey,
+		AutoIncrement: autoIncrement,
 	}, nil
 }
 

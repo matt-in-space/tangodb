@@ -31,12 +31,14 @@ func (d DataType) String() string {
 }
 
 type Collection struct {
-	name         string
-	data         map[string]DataType
-	records      map[uint64]Entity
-	nextID       uint64
-	primaryKey   string
-	primaryIndex map[any]uint64
+	name          string
+	data          map[string]DataType
+	records       map[uint64]Entity
+	nextID        uint64
+	primaryKey    string
+	primaryIndex  map[any]uint64
+	autoIncrement bool
+	nextAutoValue int64
 }
 
 func (c Collection) String() string {
@@ -53,6 +55,9 @@ func (c Collection) String() string {
 		fmt.Fprintf(&b, "  %s: %s", field, c.data[field])
 		if field == c.primaryKey {
 			b.WriteString(" @id")
+			if c.autoIncrement {
+				b.WriteString(" @auto")
+			}
 		}
 		b.WriteString("\n")
 	}

@@ -15,7 +15,11 @@ const (
 	tokenRBrace
 	tokenAt
 	tokenComma
+	tokenSemicolon
+	tokenLParen
+	tokenRParen
 	tokenInsertOp // >>
+	tokenReadOp   // <<
 	tokenArrow    // =>
 	tokenString
 	tokenNumber
@@ -54,6 +58,18 @@ func lex(input string) ([]token, error) {
 			tokens = append(tokens, token{kind: tokenComma, value: ","})
 			i++
 
+		case r == ';':
+			tokens = append(tokens, token{kind: tokenSemicolon, value: ";"})
+			i++
+
+		case r == '(':
+			tokens = append(tokens, token{kind: tokenLParen, value: "("})
+			i++
+
+		case r == ')':
+			tokens = append(tokens, token{kind: tokenRParen, value: ")"})
+			i++
+
 		case r == '@':
 			tokens = append(tokens, token{kind: tokenAt, value: "@"})
 			i++
@@ -66,6 +82,16 @@ func lex(input string) ([]token, error) {
 				return nil, fmt.Errorf("unexpected character %q at position %d", r, i)
 			}
 			tokens = append(tokens, token{kind: tokenInsertOp, value: ">>"})
+			i += 2
+
+		case r == '<':
+			if i+1 >= len(runes) {
+				return nil, ErrIncompleteInput
+			}
+			if runes[i+1] != '<' {
+				return nil, fmt.Errorf("unexpected character %q at position %d", r, i)
+			}
+			tokens = append(tokens, token{kind: tokenReadOp, value: "<<"})
 			i += 2
 
 		case r == '=':

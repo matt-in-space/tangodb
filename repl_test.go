@@ -99,3 +99,77 @@ func TestRunREPL_InsertReportsUnknownCollectionError(t *testing.T) {
 		t.Fatalf("expected an unknown collection error, got: %q", output)
 	}
 }
+
+func TestRunREPL_DefinesInsertsThenReadsInOneSession(t *testing.T) {
+	in := strings.NewReader(
+		"user { id: int @id name: text }\n" +
+			">> user => {id: 1, name: \"Matt\"}\n" +
+			">> user => {id: 2, name: \"Sam\"}\n" +
+			"<< user(name: \"Sam\") => {id, name}\n",
+	)
+	var out bytes.Buffer
+
+	RunREPL(in, &out)
+
+	output := out.String()
+
+	if !strings.Contains(output, "id  name") {
+		t.Fatalf("expected a table header, got: %q", output)
+	}
+
+	if !strings.Contains(output, "2   Sam") {
+		t.Fatalf("expected the filtered row, got: %q", output)
+	}
+
+	if strings.Contains(output, "1   Matt") {
+		t.Fatalf("expected the filter to exclude the non-matching row, got: %q", output)
+	}
+}
+
+func TestRunREPL_BareReadWithSemicolonReturnsEverything(t *testing.T) {
+	in := strings.NewReader(
+		"user { id: int @id name: text }\n" +
+			">> user => {id: 1, name: \"Matt\"}\n" +
+			">> user => {id: 2, name: \"Sam\"}\n" +
+			"<< user;\n",
+	)
+	var out bytes.Buffer
+
+	RunREPL(in, &out)
+
+	output := out.String()
+
+	if !strings.Contains(output, "id  name") {
+		t.Fatalf("expected a table header with both fields, got: %q", output)
+	}
+
+	if !strings.Contains(output, "1   Matt") || !strings.Contains(output, "2   Sam") {
+		t.Fatalf("expected both records, got: %q", output)
+	}
+}
+
+func TestRunREPL_BareReadWithoutSemicolonWaitsForMore(t *testing.T) {
+	in := strings.NewReader("user { id: int @id }\n<< user\n")
+	var out bytes.Buffer
+
+	RunREPL(in, &out)
+
+	output := out.String()
+
+	if !strings.HasSuffix(strings.TrimRight(output, "\n"), "... ") {
+		t.Fatalf("expected the REPL to still be waiting on a continuation prompt, got: %q", output)
+	}
+}
+
+func TestRunREPL_ReadReportsNoRecordsFound(t *testing.T) {
+	in := strings.NewReader("user { id: int @id }\n<< user() => {id}\n")
+	var out bytes.Buffer
+
+	RunREPL(in, &out)
+
+	output := out.String()
+
+	if !strings.Contains(output, "no records found") {
+		t.Fatalf("expected \"no records found\", got: %q", output)
+	}
+}

@@ -18,10 +18,17 @@ func (db *Database) insert(collectionName string, record Entity) (OperationResul
 	}
 
 	if collection.primaryKey != "" {
-		key, ok := record[collection.primaryKey]
-		if !ok {
+		if collection.autoIncrement {
+			if _, exists := record[collection.primaryKey]; exists {
+				return nil, fmt.Errorf("field %q is auto-increment and must not be supplied for collection %q", collection.primaryKey, collectionName)
+			}
+			record[collection.primaryKey] = collection.nextAutoValue
+			collection.nextAutoValue++
+		} else if _, ok := record[collection.primaryKey]; !ok {
 			return nil, fmt.Errorf("record missing primary key %q for collection %q", collection.primaryKey, collectionName)
 		}
+
+		key := record[collection.primaryKey]
 		if _, exists := collection.primaryIndex[key]; exists {
 			return nil, fmt.Errorf("duplicate primary key %v for collection %q", key, collectionName)
 		}

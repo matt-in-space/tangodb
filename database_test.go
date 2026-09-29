@@ -59,6 +59,35 @@ func TestDatabaseRun_DefineCollectionRejectsUnknownPrimaryKey(t *testing.T) {
 	}
 }
 
+func TestDatabaseRun_DefineCollectionRejectsAutoWithoutPrimaryKey(t *testing.T) {
+	o := DefineCollectionOperation{
+		Name:          "user",
+		Data:          map[string]DataType{"id": TypeInt},
+		AutoIncrement: true,
+	}
+
+	d := NewDatabase("test")
+
+	if _, err := d.run(o); err == nil {
+		t.Fatal("expected an error for AutoIncrement without a primary key")
+	}
+}
+
+func TestDatabaseRun_DefineCollectionRejectsAutoOnNonIntPrimaryKey(t *testing.T) {
+	o := DefineCollectionOperation{
+		Name:          "user",
+		Data:          map[string]DataType{"id": TypeText},
+		PrimaryKey:    "id",
+		AutoIncrement: true,
+	}
+
+	d := NewDatabase("test")
+
+	if _, err := d.run(o); err == nil {
+		t.Fatal("expected an error for AutoIncrement on a non-int primary key")
+	}
+}
+
 func TestDatabaseRun_DefineCollectionAllowsNoPrimaryKey(t *testing.T) {
 	o := DefineCollectionOperation{
 		Name: "user",
