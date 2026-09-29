@@ -6,6 +6,33 @@ import (
 	"testing"
 )
 
+func TestRunREPL_DefinesInsertsMergesThenReadsInOneSession(t *testing.T) {
+	in := strings.NewReader(
+		"user { id: int @id name: text age: int }\n" +
+			">> user {id: 1, name: \"Sam\", age: 40}\n" +
+			">> user {id: 2, name: \"Pat\", age: 40}\n" +
+			"~> user(id: 1) {name: \"Matt\"};\n" +
+			"<< user;\n",
+	)
+	var out bytes.Buffer
+
+	RunREPL(in, &out)
+
+	output := out.String()
+
+	if !strings.Contains(output, "1 updated") {
+		t.Fatalf("expected the merge to report 1 updated, got: %q", output)
+	}
+
+	if !strings.Contains(output, "40   1   Matt") {
+		t.Fatalf("expected the merged field to change while age survived, got: %q", output)
+	}
+
+	if !strings.Contains(output, "40   2   Pat") {
+		t.Fatalf("expected the non-matching record to remain untouched, got: %q", output)
+	}
+}
+
 func TestRunREPL_DefinesInsertsDeletesThenReadsInOneSession(t *testing.T) {
 	in := strings.NewReader(
 		"user { id: int @id name: text }\n" +

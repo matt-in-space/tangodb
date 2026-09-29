@@ -21,6 +21,7 @@ const (
 	tokenInsertOp // >>
 	tokenReadOp   // <<
 	tokenDeleteOp // !>
+	tokenMergeOp  // ~>
 	tokenArrow    // =>
 	tokenString
 	tokenNumber
@@ -103,6 +104,16 @@ func lex(input string) ([]token, error) {
 				return nil, fmt.Errorf("unexpected character %q at position %d", r, i)
 			}
 			tokens = append(tokens, token{kind: tokenDeleteOp, value: "!>"})
+			i += 2
+
+		case r == '~':
+			if i+1 >= len(runes) {
+				return nil, ErrIncompleteInput
+			}
+			if runes[i+1] != '>' {
+				return nil, fmt.Errorf("unexpected character %q at position %d", r, i)
+			}
+			tokens = append(tokens, token{kind: tokenMergeOp, value: "~>"})
 			i += 2
 
 		case r == '=':

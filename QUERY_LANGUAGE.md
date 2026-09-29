@@ -88,7 +88,7 @@ Four kinds, distinguished by leading symbol/keyword:
 |---|---|
 | `<< ...` | read |
 | `>> ...` | insert |
-| `~> ...` | merge / upsert (match-or-create) |
+| `~> ...` | merge (bulk conditional update) |
 | `!> ...` | delete |
 
 ### Read
@@ -146,12 +146,29 @@ Batch form — separate with &:
 >> user {name: "Matt", age: 39} => {id}
 ```
 
-### Merge / Upsert
+### Merge
 
-Match first; update if found, create if not. Deliberately a different symbol from plain insert — insert should fail on a duplicate key, merge is the explicit opt-in for "overwrite if it's already there."
+Bulk conditional update — merge the payload's fields into every record matching the filter. There is no create path: a filter matching nothing is a no-op, not an implicit insert. Deliberately a different symbol from plain insert — insert should fail on a duplicate key, merge is the explicit opt-in for "overwrite whatever's already there."
+
+The payload comes directly after the filter, no `=>` in front of it — same grammar shape as insert, for the same reason (`=>` only ever means "shape of what comes back"):
 
 ```
-~> user(id: 1) => {name: "Matt", age: 39}
+~> user(id: 1) {name: "Matt", age: 39}
+```
+
+Like delete, the filter parens are **mandatory**, even when empty — merge is a bulk mutating operation, so there's no bare `~> user {...}` shorthand that would apply to a whole collection by omission:
+
+```
+~> user() {status: "inactive"}   -- deliberately matches (and updates) everything
+```
+
+The update is a **partial merge**, not a full replace — only the fields named in the payload change; anything else already on a matched record is left untouched. Every record matching the filter is updated (no attempt to detect or reject multiple matches — the filter means the same thing here as it does for read and delete). The payload must not include the collection's declared primary key field, whether or not that field is `@auto` — the primary key is something you filter *on*, never something a merge payload sets, since a bulk update could otherwise assign the same key value to more than one row at once.
+
+Return value follows the same count-vs-`RETURNING` convention as delete:
+
+```
+~> user(id: 1) {name: "Matt"}                  -- returns a count only
+~> user(id: 1) {name: "Matt"} => {id, name}    -- returns the updated record(s) too
 ```
 
 ### Delete
@@ -182,4 +199,3 @@ Return what was deleted, same `=>` convention as insert — but unlike insert, t
 
 - Physical storage: whether a `@collection` nested inline is stored colocated with its parent (for locality) or fully separately. Logically it's the same either way — this is an optimization decision, not a semantics one.
 - Full grammar for joins across two independently-queried collections, beyond the declared-relation traversal case.
-- Merge's `=>` (`~> user(id: 1) => {name: "Matt", age: 39}`) still uses `=>` for the write payload — the same overload insert's grammar was changed to avoid (`=>` should mean only "shape of what comes back," everywhere). Worth revisiting merge's grammar the same way when it's actually implemented, e.g. `~> user(id: 1) {name: "Matt", age: 39}`.

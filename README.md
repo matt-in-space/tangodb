@@ -188,6 +188,57 @@ id  name
 1   Matt
 ```
 
+## Merging records
+
+```
+> ~> user(id: 1) {name: "Matt"};
+1 updated
+```
+
+Merge (`~>`) bulk-updates every record matching a filter by merging new field values into each match — it's a **partial** update, so any existing field not named in the payload is left untouched:
+
+```
+> << user;
+age  id  name
+40   1   Matt
+40   2   Pat
+```
+
+(`age` above wasn't touched by the merge — only `name` was in the payload.)
+
+Like delete, **the filter parens are always required, even when empty** — there's no bare `~> user {...}` shorthand, since merge can update an entire collection at once just as easily as delete can remove one:
+
+```
+> ~> user() {status: "inactive"};
+1 updated
+> ~> user {name: "Matt"};
+error: merge requires an explicit filter, e.g. ~> user() to match everything
+```
+
+Unlike delete, there's no create path — a merge whose filter matches nothing is a no-op, not an insert:
+
+```
+> ~> user(id: 99) {name: "Matt"};
+0 updated
+```
+
+The payload can't include the collection's declared primary key field, whether or not it's `@auto` — the primary key is something you filter *on*, never something a merge payload sets (a bulk update could otherwise assign the same key to multiple rows at once):
+
+```
+> ~> user(name: "Sam") {id: 5};
+error: payload must not set primary key "id" for collection "user"
+```
+
+Same count-vs-`RETURNING` result as delete: a count by default, or the updated records (reflecting their state *after* the merge) with `=> {...}`:
+
+```
+> ~> user(id: 1) {name: "Matt"};
+1 updated
+> ~> user(id: 1) {name: "Matt"} => {id, name};
+id  name
+1   Matt
+```
+
 ## Status
 
-The REPL currently supports defining a collection, inserting a flat record, reading records back with a basic equality filter and projection (including "select everything" via `;`), and deleting records with a mandatory filter and an optional count-vs-returning result. Not yet supported: nested/embedded values (in records, filters, or projections), the write's return-projection clause (`=> {id}`), batch inserts (`&`), pipeline stages like `order`/`limit`, and merge — see `QUERY_LANGUAGE.md` for the full target language.
+The REPL currently supports defining a collection, inserting a flat record, reading records back with a basic equality filter and projection (including "select everything" via `;`), deleting records with a mandatory filter and an optional count-vs-returning result, and merging (bulk partial-updating) records with the same mandatory-filter and count-vs-returning shape. Not yet supported: nested/embedded values (in records, filters, or projections), the write's return-projection clause (`=> {id}`), batch inserts (`&`), and pipeline stages like `order`/`limit` — see `QUERY_LANGUAGE.md` for the full target language.
