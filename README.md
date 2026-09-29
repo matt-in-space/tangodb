@@ -1,4 +1,4 @@
-# tangodb
+# 💃🏻 TangoDB 💃🏻
 
 A database written in Go, with its own query language. Still early — this README grows alongside what's actually implemented.
 
@@ -150,6 +150,44 @@ id  name
 
 `;` also works after a filter with no projection (`<< user(name: "Matt");`), and is harmlessly tolerated as an optional trailing marker at the end of any statement (`>> user {id: 1};`, `user { id: int };`) — it's never required except to resolve this one ambiguity.
 
+## Deleting records
+
+```
+> !> user(name: "Matt");
+1 deleted
+```
+
+Delete uses `!>`, the same filter syntax as read — but unlike read, **the filter parens are always required, even when empty**. There's no bare `!> user;` shorthand for "delete everything," the way `<< user;` works for read: forgetting a filter is the single most common way to accidentally wipe out an entire collection, so the parens can't be silently skipped. To genuinely delete every record in a collection, say so explicitly with empty parens:
+
+```
+> !> user();
+1 deleted
+```
+
+Omitting the parens entirely is a hard error, not a shortcut:
+
+```
+> !> user;
+error: delete requires an explicit filter, e.g. !> user() to match everything
+```
+
+Deleting with a filter that matches nothing is a no-op, not an error:
+
+```
+> !> user(id: 99);
+0 deleted
+```
+
+By default, delete returns only a count. Add `=> {...}` to also get the deleted records back, limited to the projected fields — this is opt-in, unlike insert and read, where a return shape is either implicit or required:
+
+```
+> !> user(id: 1);
+1 deleted
+> !> user(id: 1) => {id, name};
+id  name
+1   Matt
+```
+
 ## Status
 
-The REPL currently supports defining a collection, inserting a flat record, and reading records back with a basic equality filter and projection (including "select everything" via `;`). Not yet supported: nested/embedded values (in records, filters, or projections), the write's return-projection clause (`=> {id}`), batch inserts (`&`), pipeline stages like `order`/`limit`, and merge/delete — see `QUERY_LANGUAGE.md` for the full target language.
+The REPL currently supports defining a collection, inserting a flat record, reading records back with a basic equality filter and projection (including "select everything" via `;`), and deleting records with a mandatory filter and an optional count-vs-returning result. Not yet supported: nested/embedded values (in records, filters, or projections), the write's return-projection clause (`=> {id}`), batch inserts (`&`), pipeline stages like `order`/`limit`, and merge — see `QUERY_LANGUAGE.md` for the full target language.
