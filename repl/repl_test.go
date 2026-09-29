@@ -305,3 +305,49 @@ func TestRunREPL_PrintsSchemaWithoutWrapper(t *testing.T) {
 		t.Fatalf("expected output to contain %q, got %q", want, out.String())
 	}
 }
+
+func TestRunREPL_MultiLineMistakeReportsOneError(t *testing.T) {
+	in := strings.NewReader(
+		"user { id: int @id name: text }\n" +
+			">> user {\n" +
+			"  id: 1\n" +
+			"  name: Matt\n" +
+			"  age: 3\n" +
+			"};\n" +
+			"<< user;\n",
+	)
+	var out bytes.Buffer
+
+	RunREPL(in, &out)
+
+	output := out.String()
+
+	if strings.Count(output, "error:") != 1 {
+		t.Fatalf("expected exactly one error, got: %q", output)
+	}
+
+	if !strings.Contains(output, `error: expected a value, got "Matt"`) {
+		t.Fatalf("expected the value error, got: %q", output)
+	}
+
+	if !strings.Contains(output, prompt+"0\n") {
+		t.Fatalf("expected the following read to run normally, got: %q", output)
+	}
+}
+
+func TestRunREPL_UnmatchedClosingBracketErrorsImmediately(t *testing.T) {
+	in := strings.NewReader("};\n")
+	var out bytes.Buffer
+
+	RunREPL(in, &out)
+
+	output := out.String()
+
+	if !strings.Contains(output, "error:") {
+		t.Fatalf("expected an error, got: %q", output)
+	}
+
+	if strings.Contains(output, continuationPrompt) {
+		t.Fatalf("did not expect a continuation prompt, got: %q", output)
+	}
+}

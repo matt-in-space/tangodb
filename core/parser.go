@@ -23,6 +23,14 @@ func Parse(input string) (Operation, error) {
 		return nil, err
 	}
 
+	// A statement with an unclosed '{' or '(' isn't finished yet, so it isn't
+	// parsed at all: a mistake partway through a multi-line statement is then
+	// reported once, when the statement is complete, instead of the leftover
+	// lines being read as new statements.
+	if hasUnclosedBrackets(tokens) {
+		return nil, ErrIncompleteInput
+	}
+
 	p := &parser{tokens: tokens}
 
 	switch {
@@ -107,4 +115,25 @@ func (p *parser) expectEndOfStatement() error {
 	}
 
 	return nil
+}
+
+// hasUnclosedBrackets reports whether tokens open more '{'/'(' than they close.
+// If a closing bracket ever outnumbers its openers, more input can't fix the
+// statement, so it counts as closed and the parser reports the error.
+func hasUnclosedBrackets(tokens []token) bool {
+	depth := 0
+
+	for _, t := range tokens {
+		switch t.kind {
+		case tokenLBrace, tokenLParen:
+			depth++
+		case tokenRBrace, tokenRParen:
+			depth--
+			if depth < 0 {
+				return false
+			}
+		}
+	}
+
+	return depth > 0
 }

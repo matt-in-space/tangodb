@@ -10,6 +10,20 @@ go run .
 
 This starts an interactive prompt (`tango>`) backed by a single in-memory database that lives for the session. It reads a statement, parses it, runs it against that database, and prints the result (or an error). Enter starts a new line rather than submitting — the REPL keeps reading until what you've typed forms a complete statement, then submits it automatically. While a statement is still incomplete, the prompt switches to a continuation prompt (`...>`), padded to line up with `tango>`. The prompts deliberately avoid the query language's operator characters, so `tango> >> user {...}` can't be misread.
 
+While any `{` or `(` is still open, the REPL doesn't try to parse what you've typed — it just keeps reading. So a mistake partway through a multi-line statement is reported once, after you close the brackets, and the rest of the statement is discarded with it (rather than each leftover line being read as a statement of its own):
+
+```
+tango> >> user {
+  ...>   id: 1
+  ...>   name: Matt
+  ...>   age: 3
+  ...> };
+error: expected a value, got "Matt"
+tango>
+```
+
+Brackets inside quoted strings don't count, and an unmatched closing bracket is reported right away.
+
 Exit with Ctrl+D, or by typing `exit` (case-insensitive) on its own. `exit` is a REPL command, not part of the query language — it isn't run against the database.
 
 ## Declaring a collection
