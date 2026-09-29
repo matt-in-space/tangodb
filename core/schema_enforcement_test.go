@@ -133,7 +133,10 @@ func TestSchema_InsertRejectsUndeclaredField(t *testing.T) {
 
 	got := runExpectingError(t, d, `>> user {id: 1 nmae: "Matt"};`)
 
-	want := `field "nmae" not found in schema for collection "user"`
+	// The typo is reported alongside the required field it left missing.
+	want := "2 problems, nothing inserted:\n" +
+		"  field \"nmae\" not found in schema for collection \"user\"\n" +
+		"  field \"name\" is required for collection \"user\""
 	if got != want {
 		t.Fatalf("expected error %q, got %q", want, got)
 	}

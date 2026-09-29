@@ -18,6 +18,7 @@ const (
 	tokenLParen
 	tokenRParen
 	tokenStar
+	tokenAmp      // & separates records in a batch insert
 	tokenInsertOp // >>
 	tokenReadOp   // <<
 	tokenDeleteOp // !>
@@ -75,6 +76,10 @@ func lex(input string) ([]token, error) {
 
 		case r == '*':
 			tokens = append(tokens, token{kind: tokenStar, value: "*"})
+			i++
+
+		case r == '&':
+			tokens = append(tokens, token{kind: tokenAmp, value: "&"})
 			i++
 
 		case r == '@':

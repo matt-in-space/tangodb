@@ -1,6 +1,9 @@
 package core
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestValidateValue_AcceptsMatchingTypes(t *testing.T) {
 	cases := []struct {
@@ -131,38 +134,86 @@ func TestValidateFields_RejectsNullOnRequiredField(t *testing.T) {
 	}
 }
 
-func TestValidateRequired_RejectsMissingRequiredField(t *testing.T) {
+func TestRecordProblems_ReportsMissingRequiredField(t *testing.T) {
 	collection := &Collection{
 		name: "user",
 		data: map[string]DataType{"age": TypeInt, "name": TypeText},
 	}
 
-	err := validateRequired(collection, Entity{"name": "Matt"})
-	if err == nil {
-		t.Fatal("expected an error for a missing required field")
-	}
+	problems, _ := recordProblems(collection, Entity{"name": "Matt"})
 
-	want := `field "age" is required for collection "user"`
-	if err.Error() != want {
-		t.Fatalf("expected error %q, got %q", want, err.Error())
+	want := []string{`field "age" is required for collection "user"`}
+	if !reflect.DeepEqual(problems, want) {
+		t.Fatalf("expected %v, got %v", want, problems)
 	}
 }
 
-func TestValidateRequired_ReportsFirstMissingFieldInSortedOrder(t *testing.T) {
+func TestRecordProblems_ReportsEveryProblemInOrder(t *testing.T) {
 	collection := &Collection{
-		name: "user",
-		data: map[string]DataType{"a": TypeInt, "b": TypeInt, "c": TypeInt},
+		name:       "user",
+		data:       map[string]DataType{"id": TypeInt, "age": TypeInt, "name": TypeText, "city": TypeText},
+		primaryKey: "id",
 	}
 
 	for range 20 {
-		err := validateRequired(collection, Entity{"b": int64(1)})
-		if err == nil || err.Error() != `field "a" is required for collection "user"` {
-			t.Fatalf("expected an error for field \"a\", got %v", err)
+		problems, bad := recordProblems(collection, Entity{"name": int64(1), "age": "old", "nope": true})
+
+		want := []string{
+			`record missing primary key "id" for collection "user"`,
+			`field "age": expected int, got text`,
+			`field "name": expected text, got int`,
+			`field "nope" not found in schema for collection "user"`,
+			`field "city" is required for collection "user"`,
+		}
+		if !reflect.DeepEqual(problems, want) {
+			t.Fatalf("expected:\n%v\ngot:\n%v", want, problems)
+		}
+
+		for _, field := range []string{"id", "age", "name", "nope", "city"} {
+			if !bad[field] {
+				t.Fatalf("expected %q to be flagged, got %v", field, bad)
+			}
 		}
 	}
 }
 
-func TestValidateRequired_SkipsOptionalAndAutoPrimaryKey(t *testing.T) {
+func TestRecordProblems_ReportsOneProblemPerField(t *testing.T) {
+	collection := &Collection{
+		name:         "user",
+		data:         map[string]DataType{"id": TypeInt, "name": TypeText},
+		primaryKey:   "id",
+		autoCounters: map[string]int64{"id": 1},
+	}
+
+	// A null auto id is "supplied", and would also be "required and cannot be
+	// null"; only the first check reports it.
+	problems, _ := recordProblems(collection, Entity{"id": nil, "name": nil})
+
+	want := []string{
+		`field "id" is auto-increment and must not be supplied for collection "user"`,
+		`field "name" is required and cannot be null`,
+	}
+	if !reflect.DeepEqual(problems, want) {
+		t.Fatalf("expected %v, got %v", want, problems)
+	}
+}
+
+func TestRecordProblems_NullManualPrimaryKeyReportedOnce(t *testing.T) {
+	collection := &Collection{
+		name:       "user",
+		data:       map[string]DataType{"id": TypeInt},
+		primaryKey: "id",
+	}
+
+	problems, _ := recordProblems(collection, Entity{"id": nil})
+
+	want := []string{`record missing primary key "id" for collection "user"`}
+	if !reflect.DeepEqual(problems, want) {
+		t.Fatalf("expected %v, got %v", want, problems)
+	}
+}
+
+func TestRecordProblems_NoProblemsSkipsOptionalAndAuto(t *testing.T) {
 	collection := &Collection{
 		name:         "user",
 		data:         map[string]DataType{"id": TypeInt, "nickname": TypeText},
@@ -171,7 +222,7 @@ func TestValidateRequired_SkipsOptionalAndAutoPrimaryKey(t *testing.T) {
 		optional:     map[string]bool{"nickname": true},
 	}
 
-	if err := validateRequired(collection, Entity{}); err != nil {
-		t.Fatalf("expected no error, got %v", err)
+	if problems, _ := recordProblems(collection, Entity{}); len(problems) != 0 {
+		t.Fatalf("expected no problems, got %v", problems)
 	}
 }

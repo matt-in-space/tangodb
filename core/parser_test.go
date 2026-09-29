@@ -53,8 +53,8 @@ func TestParse_BraceInsideStringDoesNotCount(t *testing.T) {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
 
-	if o.(InsertOperation).Record["name"] != "{" {
-		t.Fatalf("expected name %q, got %v", "{", o.(InsertOperation).Record["name"])
+	if o.(InsertOperation).Records[0]["name"] != "{" {
+		t.Fatalf("expected name %q, got %v", "{", o.(InsertOperation).Records[0]["name"])
 	}
 }
 

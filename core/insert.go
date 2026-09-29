@@ -1,10 +1,14 @@
 package core
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
 
 type InsertOperation struct {
 	Collection string
-	Record     Entity
+	Records    []Entity
 	Projection []string
 }
 
@@ -14,32 +18,45 @@ type InsertResult struct {
 	Records    []Entity
 }
 
-func (db *Database) insert(collectionName string, record Entity, projection []string) (OperationResult, error) {
+// insert stores a batch of records (a single insert is a batch of one). It's
+// all-or-nothing: every record is validated, along with duplicate keys within
+// the batch and the projection, and every problem found is reported. Nothing
+// is written unless there are none.
+func (db *Database) insert(collectionName string, records []Entity, projection []string) (OperationResult, error) {
 	collection, ok := db.collections[collectionName]
 	if !ok {
 		return nil, fmt.Errorf("collection %q does not exist", collectionName)
 	}
 
-	autoFields := collection.sortedAutoFields()
+	batch := len(records) > 1
+	var problems []string
 
-	for _, field := range autoFields {
-		if _, exists := record[field]; exists {
-			return nil, fmt.Errorf("field %q is auto-increment and must not be supplied for collection %q", field, collectionName)
+	addProblem := func(index int, problem string) {
+		if batch {
+			problem = fmt.Sprintf("record %d: %s", index+1, problem)
 		}
+		problems = append(problems, problem)
 	}
 
 	manualKey := collection.primaryKey != "" && !collection.isAuto(collection.primaryKey)
+	seenKeys := map[any]bool{}
 
-	if manualKey && record[collection.primaryKey] == nil {
-		return nil, fmt.Errorf("record missing primary key %q for collection %q", collection.primaryKey, collectionName)
-	}
+	for i, record := range records {
+		recordErrs, bad := recordProblems(collection, record)
+		for _, problem := range recordErrs {
+			addProblem(i, problem)
+		}
 
-	if err := validateFields(collection, record); err != nil {
-		return nil, err
-	}
+		if !manualKey || bad[collection.primaryKey] {
+			continue
+		}
 
-	if err := validateRequired(collection, record); err != nil {
-		return nil, err
+		key := record[collection.primaryKey]
+		_, stored := collection.primaryIndex[key]
+		if stored || seenKeys[key] {
+			addProblem(i, fmt.Sprintf("duplicate primary key %v for collection %q", key, collectionName))
+		}
+		seenKeys[key] = true
 	}
 
 	wantRecords := projection != nil
@@ -49,46 +66,49 @@ func (db *Database) insert(collectionName string, record Entity, projection []st
 
 		for _, field := range projection {
 			if _, ok := collection.data[field]; !ok {
-				return nil, fmt.Errorf("field %q not found in schema for collection %q", field, collectionName)
+				problems = append(problems, fmt.Sprintf("field %q not found in schema for collection %q", field, collectionName))
 			}
 		}
 	}
 
-	if manualKey {
-		key := record[collection.primaryKey]
-		if _, exists := collection.primaryIndex[key]; exists {
-			return nil, fmt.Errorf("duplicate primary key %v for collection %q", key, collectionName)
+	if len(problems) == 1 {
+		return nil, errors.New(problems[0])
+	}
+
+	if len(problems) > 1 {
+		return nil, fmt.Errorf("%d problems, nothing inserted:\n  %s", len(problems), strings.Join(problems, "\n  "))
+	}
+
+	// Every record is valid, so write them all, in input order. Counters
+	// advance only now, so a failed insert never consumes a value, and auto
+	// values follow the order the records were written in.
+	for _, record := range records {
+		// A null value is stored as an absent field, so "no value" has one representation.
+		for field, value := range record {
+			if value == nil {
+				delete(record, field)
+			}
+		}
+
+		for _, field := range collection.sortedAutoFields() {
+			record[field] = collection.autoCounters[field]
+			collection.autoCounters[field]++
+		}
+
+		id := collection.nextID
+		collection.nextID++
+		collection.records[id] = record
+
+		if collection.primaryKey != "" {
+			collection.primaryIndex[record[collection.primaryKey]] = id
 		}
 	}
 
-	// A null value is stored as an absent field, so "no value" has one representation.
-	for field, value := range record {
-		if value == nil {
-			delete(record, field)
-		}
-	}
-
-	// Counters advance only once every check has passed, so a failed insert
-	// never consumes a value. An auto primary key can't collide, since each
-	// value is new.
-	for _, field := range autoFields {
-		record[field] = collection.autoCounters[field]
-		collection.autoCounters[field]++
-	}
-
-	id := collection.nextID
-	collection.nextID++
-	collection.records[id] = record
-
-	if collection.primaryKey != "" {
-		collection.primaryIndex[record[collection.primaryKey]] = id
-	}
-
-	result := InsertResult{Count: 1}
+	result := InsertResult{Count: len(records)}
 
 	if wantRecords {
 		result.Projection = projection
-		result.Records = []Entity{record}
+		result.Records = records
 	}
 
 	return result, nil

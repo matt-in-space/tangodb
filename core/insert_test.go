@@ -19,7 +19,7 @@ func TestDatabaseRun_InsertsARecordWithPrimaryKey(t *testing.T) {
 
 	o := InsertOperation{
 		Collection: "user",
-		Record:     Entity{"name": "Matt", "age": int64(39)},
+		Records:    []Entity{Entity{"name": "Matt", "age": int64(39)}},
 		Projection: []string{"*"},
 	}
 
@@ -71,7 +71,7 @@ func TestDatabaseRun_InsertRejectsMissingPrimaryKeyField(t *testing.T) {
 
 	o := InsertOperation{
 		Collection: "user",
-		Record:     Entity{"age": int64(39)},
+		Records:    []Entity{Entity{"age": int64(39)}},
 	}
 
 	_, err = d.Run(o)
@@ -101,7 +101,7 @@ func TestDatabaseRun_InsertRejectsDuplicatePrimaryKey(t *testing.T) {
 
 	o := InsertOperation{
 		Collection: "user",
-		Record:     Entity{"name": "Matt"},
+		Records:    []Entity{Entity{"name": "Matt"}},
 	}
 
 	if _, err := d.Run(o); err != nil {
@@ -128,7 +128,7 @@ func TestDatabaseRun_InsertsARecordWithNoPrimaryKey(t *testing.T) {
 
 	o := InsertOperation{
 		Collection: "user",
-		Record:     Entity{"name": "Matt"},
+		Records:    []Entity{Entity{"name": "Matt"}},
 		Projection: []string{"*"},
 	}
 
@@ -170,12 +170,12 @@ func TestDatabaseRun_InsertAssignsSequentialAutoIncrementIDs(t *testing.T) {
 		t.Fatalf("Failed to define collection, err: %v", err)
 	}
 
-	first, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"name": "Matt"}, Projection: []string{"id"}})
+	first, err := d.Run(InsertOperation{Collection: "user", Records: []Entity{Entity{"name": "Matt"}}, Projection: []string{"id"}})
 	if err != nil {
 		t.Fatalf("Failed to insert first record, err: %v", err)
 	}
 
-	second, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"name": "Sam"}, Projection: []string{"id"}})
+	second, err := d.Run(InsertOperation{Collection: "user", Records: []Entity{Entity{"name": "Sam"}}, Projection: []string{"id"}})
 	if err != nil {
 		t.Fatalf("Failed to insert second record, err: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestDatabaseRun_InsertRejectsManualValueOnAutoIncrementField(t *testing.T) 
 		t.Fatalf("Failed to define collection, err: %v", err)
 	}
 
-	if _, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"id": int64(5)}}); err == nil {
+	if _, err := d.Run(InsertOperation{Collection: "user", Records: []Entity{Entity{"id": int64(5)}}}); err == nil {
 		t.Fatal("expected an error for manually supplying an auto-increment field")
 	}
 }
@@ -215,7 +215,7 @@ func TestDatabaseRun_InsertRejectsUnknownCollection(t *testing.T) {
 
 	o := InsertOperation{
 		Collection: "user",
-		Record:     Entity{"name": "Matt"},
+		Records:    []Entity{Entity{"name": "Matt"}},
 	}
 
 	if _, err := d.Run(o); err == nil {

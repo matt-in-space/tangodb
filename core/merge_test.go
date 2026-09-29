@@ -19,11 +19,11 @@ func setupUserCollectionForMerge(t *testing.T) *Database {
 		t.Fatalf("Failed to define collection, err: %v", err)
 	}
 
-	if _, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"id": int64(1), "name": "Sam", "age": int64(40)}}); err != nil {
+	if _, err := d.Run(InsertOperation{Collection: "user", Records: []Entity{Entity{"id": int64(1), "name": "Sam", "age": int64(40)}}}); err != nil {
 		t.Fatalf("Failed to insert, err: %v", err)
 	}
 
-	if _, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"id": int64(2), "name": "Pat", "age": int64(40)}}); err != nil {
+	if _, err := d.Run(InsertOperation{Collection: "user", Records: []Entity{Entity{"id": int64(2), "name": "Pat", "age": int64(40)}}}); err != nil {
 		t.Fatalf("Failed to insert, err: %v", err)
 	}
 

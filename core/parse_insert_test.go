@@ -16,16 +16,16 @@ func TestParseInsert_ParsesFlatValues(t *testing.T) {
 		t.Fatalf("expected collection %q, got %q", "user", o.Collection)
 	}
 
-	if o.Record["id"] != int64(1) {
-		t.Fatalf("expected id 1, got %v (%T)", o.Record["id"], o.Record["id"])
+	if o.Records[0]["id"] != int64(1) {
+		t.Fatalf("expected id 1, got %v (%T)", o.Records[0]["id"], o.Records[0]["id"])
 	}
 
-	if o.Record["name"] != "Matt" {
-		t.Fatalf("expected name %q, got %v", "Matt", o.Record["name"])
+	if o.Records[0]["name"] != "Matt" {
+		t.Fatalf("expected name %q, got %v", "Matt", o.Records[0]["name"])
 	}
 
-	if o.Record["age"] != int64(39) {
-		t.Fatalf("expected age 39, got %v (%T)", o.Record["age"], o.Record["age"])
+	if o.Records[0]["age"] != int64(39) {
+		t.Fatalf("expected age 39, got %v (%T)", o.Records[0]["age"], o.Records[0]["age"])
 	}
 }
 
@@ -35,8 +35,8 @@ func TestParseInsert_ParsesFloats(t *testing.T) {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
 
-	if o.Record["price"] != 9.99 {
-		t.Fatalf("expected price 9.99, got %v (%T)", o.Record["price"], o.Record["price"])
+	if o.Records[0]["price"] != 9.99 {
+		t.Fatalf("expected price 9.99, got %v (%T)", o.Records[0]["price"], o.Records[0]["price"])
 	}
 }
 
@@ -46,8 +46,8 @@ func TestParseInsert_AllowsTrailingComma(t *testing.T) {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
 
-	if len(o.Record) != 1 {
-		t.Fatalf("expected 1 field, got %d", len(o.Record))
+	if len(o.Records[0]) != 1 {
+		t.Fatalf("expected 1 field, got %d", len(o.Records[0]))
 	}
 }
 
@@ -57,8 +57,8 @@ func TestParseInsert_AllowsEmptyRecord(t *testing.T) {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
 
-	if len(o.Record) != 0 {
-		t.Fatalf("expected no fields, got %d", len(o.Record))
+	if len(o.Records[0]) != 0 {
+		t.Fatalf("expected no fields, got %d", len(o.Records[0]))
 	}
 }
 
@@ -69,8 +69,8 @@ func TestParseInsert_UnescapesStrings(t *testing.T) {
 	}
 
 	want := `say "hi" \ bye`
-	if o.Record["name"] != want {
-		t.Fatalf("expected %q, got %q", want, o.Record["name"])
+	if o.Records[0]["name"] != want {
+		t.Fatalf("expected %q, got %q", want, o.Records[0]["name"])
 	}
 }
 
@@ -80,8 +80,8 @@ func TestParseInsert_ToleratesTrailingSemicolon(t *testing.T) {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
 
-	if o.Record["id"] != int64(1) {
-		t.Fatalf("expected id 1, got %v", o.Record["id"])
+	if o.Records[0]["id"] != int64(1) {
+		t.Fatalf("expected id 1, got %v", o.Records[0]["id"])
 	}
 }
 
@@ -107,8 +107,8 @@ func TestParseInsert_AllowsMixedAndTrailingCommas(t *testing.T) {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
 
-	if len(o.Record) != 3 || o.Record["age"] != int64(39) {
-		t.Fatalf("expected all three fields, got %v", o.Record)
+	if len(o.Records[0]) != 3 || o.Records[0]["age"] != int64(39) {
+		t.Fatalf("expected all three fields, got %v", o.Records[0])
 	}
 }
 
@@ -118,8 +118,8 @@ func TestParseInsert_CommaInsideStringIsPartOfTheValue(t *testing.T) {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
 
-	if o.Record["name"] != "Smith, Matt" {
-		t.Fatalf("expected %q, got %q", "Smith, Matt", o.Record["name"])
+	if o.Records[0]["name"] != "Smith, Matt" {
+		t.Fatalf("expected %q, got %q", "Smith, Matt", o.Records[0]["name"])
 	}
 }
 
@@ -158,12 +158,12 @@ func TestParseInsert_ParsesBooleans(t *testing.T) {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
 
-	if o.Record["active"] != true {
-		t.Fatalf("expected active true, got %v (%T)", o.Record["active"], o.Record["active"])
+	if o.Records[0]["active"] != true {
+		t.Fatalf("expected active true, got %v (%T)", o.Records[0]["active"], o.Records[0]["active"])
 	}
 
-	if o.Record["archived"] != false {
-		t.Fatalf("expected archived false, got %v (%T)", o.Record["archived"], o.Record["archived"])
+	if o.Records[0]["archived"] != false {
+		t.Fatalf("expected archived false, got %v (%T)", o.Records[0]["archived"], o.Records[0]["archived"])
 	}
 }
 
@@ -173,8 +173,8 @@ func TestParseInsert_QuotedTrueIsAString(t *testing.T) {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
 
-	if o.Record["active"] != "true" {
-		t.Fatalf("expected the string %q, got %v (%T)", "true", o.Record["active"], o.Record["active"])
+	if o.Records[0]["active"] != "true" {
+		t.Fatalf("expected the string %q, got %v (%T)", "true", o.Records[0]["active"], o.Records[0]["active"])
 	}
 }
 
@@ -196,7 +196,7 @@ func TestParseInsert_ParsesNull(t *testing.T) {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
 
-	value, ok := o.Record["nickname"]
+	value, ok := o.Records[0]["nickname"]
 	if !ok {
 		t.Fatal("expected nickname to be present in the parsed record")
 	}
@@ -212,8 +212,8 @@ func TestParseInsert_QuotedNullIsAString(t *testing.T) {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
 
-	if o.Record["nickname"] != "null" {
-		t.Fatalf("expected the string %q, got %v (%T)", "null", o.Record["nickname"], o.Record["nickname"])
+	if o.Records[0]["nickname"] != "null" {
+		t.Fatalf("expected the string %q, got %v (%T)", "null", o.Records[0]["nickname"], o.Records[0]["nickname"])
 	}
 }
 
@@ -272,5 +272,52 @@ func TestParseInsert_RejectsWildcardCombinedWithFields(t *testing.T) {
 		if _, err := ParseInsert(input); err == nil {
 			t.Fatalf("expected an error for %q", input)
 		}
+	}
+}
+
+func TestParseInsert_ParsesBatch(t *testing.T) {
+	o, err := ParseInsert(`>> user {id: 1} & {id: 2} & {id: 3};`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if len(o.Records) != 3 {
+		t.Fatalf("expected 3 records, got %d", len(o.Records))
+	}
+
+	for i, record := range o.Records {
+		if record["id"] != int64(i+1) {
+			t.Fatalf("expected record %d to have id %d, got %v", i+1, i+1, record["id"])
+		}
+	}
+}
+
+func TestParseInsert_TrailingAmpersandIsIncomplete(t *testing.T) {
+	if _, err := ParseInsert(`>> user {id: 1} &`); !errors.Is(err, ErrIncompleteInput) {
+		t.Fatalf("expected ErrIncompleteInput, got %v", err)
+	}
+}
+
+func TestParseInsert_DanglingAmpersandIsAnError(t *testing.T) {
+	_, err := ParseInsert(`>> user {id: 1} & ;`)
+	if err == nil || errors.Is(err, ErrIncompleteInput) {
+		t.Fatalf("expected a parse error, got %v", err)
+	}
+}
+
+func TestParseInsert_BatchProjectionFollowsLastRecord(t *testing.T) {
+	o, err := ParseInsert(`>> user {id: 1} & {id: 2} => {id}`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if len(o.Records) != 2 || !reflect.DeepEqual(o.Projection, []string{"id"}) {
+		t.Fatalf("expected 2 records and projection [id], got %d and %v", len(o.Records), o.Projection)
+	}
+}
+
+func TestParseInsert_ProjectionBetweenRecordsIsAnError(t *testing.T) {
+	if _, err := ParseInsert(`>> user {id: 1} => {id} & {id: 2}`); err == nil {
+		t.Fatal("expected an error for a projection between records")
 	}
 }

@@ -153,8 +153,12 @@ A field the schema doesn't declare is rejected too, so a typo can't silently van
 
 ```
 tango> >> user {id: 1 nmae: "Matt"};
-error: field "nmae" not found in schema for collection "user"
+error: 2 problems, nothing inserted:
+  field "nmae" not found in schema for collection "user"
+  field "name" is required for collection "user"
 ```
+
+An insert reports every problem it finds, not just the first — here, the typo'd field *and* the required field it left missing. When there's only one problem, you get just that line.
 
 The same rules apply everywhere a value appears — insert records, merge payloads, and filters on read, delete, and merge. A filter like `(price: 10)` on a `float` field is an error, not a query that quietly matches nothing.
 
@@ -238,6 +242,37 @@ Inserting into a collection that hasn't been defined is also an error:
 tango> >> ghost {id: 1};
 error: collection "ghost" does not exist
 ```
+
+### Inserting several records at once
+
+Separate records with `&` to insert them in one statement. The result is the number of records inserted:
+
+```
+tango> >> user {id: 1 name: "Matt"} & {id: 2 name: "Sam"};
+2
+```
+
+A trailing `&` means more records are coming, so a batch can span lines. A `=>` projection goes after the last record and returns one row per record, in the order you wrote them:
+
+```
+tango> >> user {id: 3 name: "Pat"} &
+  ...> {id: 4 name: "Ann"} => {id name}
+id  name
+3   Pat
+4   Ann
+```
+
+A batch is **all-or-nothing**: every record is checked before any is stored — including duplicate keys *within* the batch — and if anything is wrong, nothing is inserted. Every problem is listed, each tagged with the record it came from:
+
+```
+tango> >> user {id: 5 name: "Kim"} & {id: 6} & {id: 5 name: 7};
+error: 3 problems, nothing inserted:
+  record 2: field "name" is required for collection "user"
+  record 3: field "name": expected text, got int
+  record 3: duplicate primary key 5 for collection "user"
+```
+
+Records in a batch can differ in which optional fields they supply, and `@auto` values are assigned in input order, only once the whole batch is valid.
 
 ## Querying records
 
@@ -409,4 +444,4 @@ id  name
 
 ## Status
 
-The REPL currently supports defining a collection, inserting a flat record (a count by default, or the stored record with `=>`), reading records back with a basic equality filter and projection (a `*` wildcard for every field, or omit the projection entirely for just a count), deleting records with a mandatory filter and the same count-vs-returning shape, and merging (bulk partial-updating) records the same way. Not yet supported: nested/embedded values (in records, filters, or projections), batch inserts (`&`), and pipeline stages like `order`/`limit` — see `QUERY_LANGUAGE.md` for the full target language.
+The REPL currently supports defining a collection, inserting flat records, one at a time or in `&` batches (a count by default, or the stored records with `=>`), reading records back with a basic equality filter and projection (a `*` wildcard for every field, or omit the projection entirely for just a count), deleting records with a mandatory filter and the same count-vs-returning shape, and merging (bulk partial-updating) records the same way. Not yet supported: nested/embedded values (in records, filters, or projections), and pipeline stages like `order`/`limit` — see `QUERY_LANGUAGE.md` for the full target language.

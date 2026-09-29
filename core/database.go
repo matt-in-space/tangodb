@@ -24,7 +24,7 @@ func (db *Database) Run(o Operation) (OperationResult, error) {
 		return db.defineCollection(op.Name, op.Data, op.PrimaryKey, op.AutoFields, op.Optional)
 
 	case InsertOperation:
-		return db.insert(op.Collection, op.Record, op.Projection)
+		return db.insert(op.Collection, op.Records, op.Projection)
 
 	case ReadOperation:
 		return db.read(op.Collection, op.Filter, op.Projection)

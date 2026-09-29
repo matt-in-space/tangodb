@@ -18,11 +18,11 @@ func setupUserCollectionWithRecords(t *testing.T) *Database {
 		t.Fatalf("Failed to define collection, err: %v", err)
 	}
 
-	if _, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"id": int64(1), "name": "Matt"}}); err != nil {
+	if _, err := d.Run(InsertOperation{Collection: "user", Records: []Entity{Entity{"id": int64(1), "name": "Matt"}}}); err != nil {
 		t.Fatalf("Failed to insert, err: %v", err)
 	}
 
-	if _, err := d.Run(InsertOperation{Collection: "user", Record: Entity{"id": int64(2), "name": "Sam"}}); err != nil {
+	if _, err := d.Run(InsertOperation{Collection: "user", Records: []Entity{Entity{"id": int64(2), "name": "Sam"}}}); err != nil {
 		t.Fatalf("Failed to insert, err: %v", err)
 	}
 

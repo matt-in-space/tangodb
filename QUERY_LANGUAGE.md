@@ -165,6 +165,8 @@ Batch form — separate with &:
   {id: 2, name: "Sam", address: {city: "St. Paul"}};
 ```
 
+A batch is all-or-nothing: every record (and duplicate keys within the batch) is validated before any is stored, and every problem found is reported, each prefixed with its record's position (`record 2: ...`). A trailing `&` means more records follow. A `=>` projection comes after the last record and returns one row per record, in input order.
+
 **Return value** follows the same count-vs-`RETURNING` convention as delete and merge: with no `=>`, an insert returns a bare-integer count (`1`, or the number of records in a batch). With `=>`, it also returns the stored records, limited to the projected fields and including any values the database assigned. Because `=>` may follow, a bare insert needs a `;` to be complete.
 
 ```

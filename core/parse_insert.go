@@ -37,6 +37,24 @@ func (p *parser) parseInsert() (Operation, error) {
 		return nil, err
 	}
 
+	records := []Entity{record}
+
+	for p.peek().kind == tokenAmp {
+		p.next()
+
+		// A trailing '&' promises another record, so keep waiting for it.
+		if p.peek().kind == tokenEOF {
+			return nil, ErrIncompleteInput
+		}
+
+		record, err := p.parseRecordLiteral()
+		if err != nil {
+			return nil, err
+		}
+
+		records = append(records, record)
+	}
+
 	var projection []string
 
 	switch p.peek().kind {
@@ -65,7 +83,7 @@ func (p *parser) parseInsert() (Operation, error) {
 
 	return InsertOperation{
 		Collection: collectionName,
-		Record:     record,
+		Records:    records,
 		Projection: projection,
 	}, nil
 }
