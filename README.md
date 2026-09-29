@@ -10,7 +10,7 @@ go run .
 
 This starts an interactive prompt (`>`) backed by a single in-memory database that lives for the session. It reads a statement, parses it, runs it against that database, and prints the result (or an error). Enter starts a new line rather than submitting — the REPL keeps reading until what you've typed forms a complete statement, then submits it automatically. While a statement is still incomplete, the prompt switches to a continuation prompt (`... `).
 
-Exit with Ctrl+D.
+Exit with Ctrl+D, or by typing `exit` (case-insensitive) on its own. `exit` is a REPL command, not part of the query language — it isn't run against the database.
 
 ## Declaring a collection
 

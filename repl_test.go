@@ -6,6 +6,32 @@ import (
 	"testing"
 )
 
+func TestRunREPL_ExitStopsTheLoop(t *testing.T) {
+	in := strings.NewReader("exit\nuser { id: int @id }\n")
+	var out bytes.Buffer
+
+	RunREPL(in, &out)
+
+	output := out.String()
+
+	if strings.Contains(output, "id: int @id") {
+		t.Fatalf("expected input after 'exit' to be ignored, got: %q", output)
+	}
+}
+
+func TestRunREPL_ExitIsCaseInsensitiveAndTrimsWhitespace(t *testing.T) {
+	in := strings.NewReader("  EXIT  \nuser { id: int @id }\n")
+	var out bytes.Buffer
+
+	RunREPL(in, &out)
+
+	output := out.String()
+
+	if strings.Contains(output, "id: int @id") {
+		t.Fatalf("expected 'EXIT' with whitespace to stop the loop, got: %q", output)
+	}
+}
+
 func TestRunREPL_SubmitsOnlyOnceStatementIsComplete(t *testing.T) {
 	in := strings.NewReader("user {\n  id: int @id\n}\n")
 	var out bytes.Buffer

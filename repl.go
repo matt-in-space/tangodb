@@ -19,10 +19,16 @@ func RunREPL(in io.Reader, out io.Writer) {
 		buffer.WriteString(scanner.Text())
 		buffer.WriteString("\n")
 
-		if strings.TrimSpace(buffer.String()) == "" {
+		trimmed := strings.TrimSpace(buffer.String())
+
+		if trimmed == "" {
 			buffer.Reset()
 			fmt.Fprint(out, "> ")
 			continue
+		}
+
+		if strings.ToLower(trimmed) == "exit" {
+			break
 		}
 
 		op, err := Parse(buffer.String())
