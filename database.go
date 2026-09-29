@@ -29,6 +29,9 @@ func (db *Database) run(o Operation) (OperationResult, error) {
 	case ReadOperation:
 		return db.read(op.Collection, op.Filter, op.Projection)
 
+	case DeleteOperation:
+		return db.delete(op.Collection, op.Filter, op.Projection)
+
 	default:
 		return nil, errors.New("invalid operation")
 	}

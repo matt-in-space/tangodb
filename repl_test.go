@@ -6,6 +6,33 @@ import (
 	"testing"
 )
 
+func TestRunREPL_DefinesInsertsDeletesThenReadsInOneSession(t *testing.T) {
+	in := strings.NewReader(
+		"user { id: int @id name: text }\n" +
+			">> user {id: 1, name: \"Matt\"}\n" +
+			">> user {id: 2, name: \"Sam\"}\n" +
+			"!> user(name: \"Matt\");\n" +
+			"<< user;\n",
+	)
+	var out bytes.Buffer
+
+	RunREPL(in, &out)
+
+	output := out.String()
+
+	if !strings.Contains(output, "1 deleted") {
+		t.Fatalf("expected the delete to report 1 deleted, got: %q", output)
+	}
+
+	if !strings.Contains(output, "id  name\n2   Sam") {
+		t.Fatalf("expected the final read to show the surviving record, got: %q", output)
+	}
+
+	if strings.Contains(output, "1   Matt") {
+		t.Fatalf("expected the deleted record to no longer appear as a table row, got: %q", output)
+	}
+}
+
 func TestRunREPL_ExitStopsTheLoop(t *testing.T) {
 	in := strings.NewReader("exit\nuser { id: int @id }\n")
 	var out bytes.Buffer

@@ -5,7 +5,7 @@ A working spec for the schema and query syntax designed in conversation. Everyth
 ## Philosophy
 
 - Code-like, not English-like. No `SELECT`/`FROM`/`WHERE` sentence-reading. No pluralization games — collection and field names are always singular.
-- Symbols carry direction/intent (`<<` out, `>>` in). The one exception is `del`, which is spelled out on purpose — it's the one destructive, irreversible operation, and it shouldn't be one keystroke away from anything else.
+- Symbols carry direction/intent (`<<` out, `>>` in, `!>` destroy). `!` is physically distant from `<`, `>`, `~`, and `=` on a standard keyboard, so the destructive operation isn't one keystroke away from any of the others — a word-form keyword (e.g. `del`) was considered instead but rejected, since it would collide with the "a bare identifier could still become a collection name" ambiguity every schema definition already has to resolve.
 - One shared grammar for "what shape of data am I looking at," reused across schema, filters, and projections.
 
 ---
@@ -156,10 +156,11 @@ Match first; update if found, create if not. Deliberately a different symbol fro
 
 ### Delete
 
-Simple form — sugar for a match-then-delete pipeline:
+Simple form — sugar for a match-then-delete pipeline. Unlike read, the filter parens are **mandatory**, even when empty — there's no bare `!> user` shorthand for "delete everything." The risk isn't confusing which operator was typed (the Philosophy section's `!>` keyboard-distance argument covers that); it's the classic "forgot the filter" mistake, which persists no matter how distinct the operator is. Requiring `()` — even empty — forces the filter position to be visibly acknowledged rather than silently skipped:
 
 ```
 !> user(id: 1)
+!> user()          -- deliberately matches (and deletes) everything
 ```
 
 Full pipeline form — what the sugar expands to, and the escape hatch for conditions too complex for a bare filter:
@@ -168,10 +169,11 @@ Full pipeline form — what the sugar expands to, and the escape hatch for condi
 << user(address.city: "Minneapolis") => u | delete(u)
 ```
 
-Return what was deleted, same `=>` convention as insert:
+Return what was deleted, same `=>` convention as insert — but unlike insert, this is genuinely optional either way: with no `=>`, delete returns only a count (Postgres plain-`DELETE` style); with `=>`, it also returns the deleted records, limited to the projected fields (Postgres `DELETE ... RETURNING` style):
 
 ```
-!> user(id: 1) => {id, name}
+!> user(id: 1)                  -- returns a count only
+!> user(id: 1) => {id, name}    -- returns the deleted record(s) too
 ```
 
 ---
@@ -179,6 +181,5 @@ Return what was deleted, same `=>` convention as insert:
 ## Open questions / not yet decided
 
 - Physical storage: whether a `@collection` nested inline is stored colocated with its parent (for locality) or fully separately. Logically it's the same either way — this is an optimization decision, not a semantics one.
-- Ceremony around unbounded bulk deletes (e.g. `del user(address.city: "Minneapolis")` with no id) — should this require something extra before it runs?
 - Full grammar for joins across two independently-queried collections, beyond the declared-relation traversal case.
 - Merge's `=>` (`~> user(id: 1) => {name: "Matt", age: 39}`) still uses `=>` for the write payload — the same overload insert's grammar was changed to avoid (`=>` should mean only "shape of what comes back," everywhere). Worth revisiting merge's grammar the same way when it's actually implemented, e.g. `~> user(id: 1) {name: "Matt", age: 39}`.

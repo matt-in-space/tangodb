@@ -35,6 +35,9 @@ func Parse(input string) (Operation, error) {
 	case p.peek().kind == tokenReadOp:
 		return p.parseRead()
 
+	case p.peek().kind == tokenDeleteOp:
+		return p.parseDelete()
+
 	case p.peek().kind == tokenIdent && p.peekAt(1).kind == tokenLBrace:
 		return p.parseDefineCollection()
 

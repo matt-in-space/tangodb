@@ -77,14 +77,21 @@ func (r ReadResult) String() string {
 		return "no records found"
 	}
 
+	return renderTable(r.Projection, r.Records)
+}
+
+// renderTable formats records as a tab-aligned table, one column per
+// projected field, in the given order. Shared by any result type that
+// needs to print a set of records the same way (ReadResult, DeleteResult).
+func renderTable(projection []string, records []Entity) string {
 	var buf bytes.Buffer
 	w := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
 
-	fmt.Fprintln(w, strings.Join(r.Projection, "\t"))
+	fmt.Fprintln(w, strings.Join(projection, "\t"))
 
-	for _, record := range r.Records {
-		cells := make([]string, len(r.Projection))
-		for i, field := range r.Projection {
+	for _, record := range records {
+		cells := make([]string, len(projection))
+		for i, field := range projection {
 			cells[i] = formatCell(record[field])
 		}
 		fmt.Fprintln(w, strings.Join(cells, "\t"))
