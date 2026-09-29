@@ -17,6 +17,10 @@ func (db *Database) insert(collectionName string, record Entity) (OperationResul
 		return nil, fmt.Errorf("collection %q does not exist", collectionName)
 	}
 
+	if err := validateFields(collection, record); err != nil {
+		return nil, err
+	}
+
 	if collection.primaryKey != "" {
 		if collection.autoIncrement {
 			if _, exists := record[collection.primaryKey]; exists {

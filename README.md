@@ -79,7 +79,34 @@ A collection can also be written on a single line:
 
 The record literal comes directly after the collection name — no `=>` before it. That keeps `=>`'s meaning consistent across the whole language: it always means "the shape of what comes back," the same job it does in a read's projection. `(...)`, in turn, always means "identify an existing record" (a read/delete/merge filter) — never "here are values for a new one." Insert has no existing record to identify, so it doesn't use `(...)` at all.
 
-Field values can be a quoted string (`"Matt"`, with `\"` and `\\` supported as escapes) or a number — a plain integer (`39`) or a decimal (`9.99`).
+Field values can be a quoted string (`"Matt"`, with `\"` and `\\` supported as escapes), a number — a plain integer (`39`) or a decimal (`9.99`) — or a boolean (`true` / `false`, unquoted; `"true"` is text).
+
+### Types are enforced
+
+Every value must match its field's declared type **exactly**, and a literal's type comes from how it's written: `39` is an `int`, `9.99` is a `float`, `"Matt"` is `text`, `true` is a `bool`. There are no conversions — not even integer to float, so a `float` field takes `10.0`, never `10`:
+
+```
+> item { id: int @id price: float }
+{item {
+  id: int @id
+  price: float
+}}
+> >> item {id: 1 price: 10}
+error: field "price": expected float, got int
+> >> item {id: 1 price: 10.0}
+{map[id:1 price:10]}
+```
+
+A field the schema doesn't declare is rejected too, so a typo can't silently vanish:
+
+```
+> >> user {id: 1 nmae: "Matt"}
+error: field "nmae" not found in schema for collection "user"
+```
+
+The same rules apply everywhere a value appears — insert records, merge payloads, and filters on read, delete, and merge. A filter like `(price: 10)` on a `float` field is an error, not a query that quietly matches nothing.
+
+Validation is all-or-nothing: the whole statement is checked before anything is written, so one bad field fails the entire insert, and a bulk merge with a bad payload changes no records at all.
 
 Commas between fields are optional — here and everywhere else a list appears (schema blocks, filters, projections). Use them when they make a one-liner easier to read, or leave them out, especially across multiple lines. These are all the same insert:
 

@@ -101,6 +101,17 @@ func (p *parser) parseValue() (any, error) {
 		}
 		return n, nil
 
+	case tokenIdent:
+		switch p.peek().value {
+		case "true":
+			p.next()
+			return true, nil
+		case "false":
+			p.next()
+			return false, nil
+		}
+		return nil, fmt.Errorf("expected a value, got %q", p.peek().value)
+
 	case tokenEOF:
 		return nil, ErrIncompleteInput
 

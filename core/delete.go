@@ -23,10 +23,8 @@ func (db *Database) delete(collectionName string, filter map[string]any, project
 		return nil, fmt.Errorf("collection %q does not exist", collectionName)
 	}
 
-	for field := range filter {
-		if _, ok := collection.data[field]; !ok {
-			return nil, fmt.Errorf("field %q not found in schema for collection %q", field, collectionName)
-		}
+	if err := validateFields(collection, filter); err != nil {
+		return nil, err
 	}
 
 	wantRecords := projection != nil

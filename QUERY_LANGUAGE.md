@@ -25,6 +25,10 @@ user {
 
 **Types:** `INT`, `FLOAT`, `TEXT`, `BOOL`
 
+**Literals** carry their type in their syntax: `39` is `int`, `9.99` is `float`, `"Matt"` is `text`, and bare `true` / `false` are `bool` (`"true"` is text).
+
+**The schema is enforced.** Every value in an insert record, a merge payload, or a filter must match its field's declared type exactly — no implicit conversions, including int to float (a `float` field takes `10.0`, not `10`). A field the schema doesn't declare is an error, never silently stored or dropped. The whole statement is validated before anything is written, so an invalid statement changes nothing.
+
 **`@id`** marks a field as the collection's identity/primary key.
 
 ### Nested shapes: embedded vs. related

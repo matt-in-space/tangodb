@@ -151,3 +151,41 @@ func TestParse_DispatchesToInsert(t *testing.T) {
 		t.Fatalf("expected an InsertOperation, got %T", o)
 	}
 }
+
+func TestParseInsert_ParsesBooleans(t *testing.T) {
+	o, err := ParseInsert(`>> user {active: true archived: false}`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if o.Record["active"] != true {
+		t.Fatalf("expected active true, got %v (%T)", o.Record["active"], o.Record["active"])
+	}
+
+	if o.Record["archived"] != false {
+		t.Fatalf("expected archived false, got %v (%T)", o.Record["archived"], o.Record["archived"])
+	}
+}
+
+func TestParseInsert_QuotedTrueIsAString(t *testing.T) {
+	o, err := ParseInsert(`>> user {active: "true"}`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if o.Record["active"] != "true" {
+		t.Fatalf("expected the string %q, got %v (%T)", "true", o.Record["active"], o.Record["active"])
+	}
+}
+
+func TestParseInsert_RejectsOtherBareWordsAsValues(t *testing.T) {
+	_, err := ParseInsert(`>> user {active: yes}`)
+	if err == nil {
+		t.Fatal("expected an error for a bare word value")
+	}
+
+	want := `expected a value, got "yes"`
+	if err.Error() != want {
+		t.Fatalf("expected error %q, got %q", want, err.Error())
+	}
+}

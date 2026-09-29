@@ -111,3 +111,18 @@ func TestParse_DispatchesToMerge(t *testing.T) {
 		t.Fatalf("expected a MergeOperation, got %T", o)
 	}
 }
+
+func TestParseMerge_ParsesBooleansInFilterAndPayload(t *testing.T) {
+	o, err := ParseMerge(`~> user(active: true) {active: false};`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if o.Filter["active"] != true {
+		t.Fatalf("expected filter active true, got %v (%T)", o.Filter["active"], o.Filter["active"])
+	}
+
+	if o.Payload["active"] != false {
+		t.Fatalf("expected payload active false, got %v (%T)", o.Payload["active"], o.Payload["active"])
+	}
+}

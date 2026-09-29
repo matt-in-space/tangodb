@@ -19,7 +19,7 @@ func TestDatabaseRun_InsertsARecordWithPrimaryKey(t *testing.T) {
 
 	o := InsertOperation{
 		Collection: "user",
-		Record:     Entity{"name": "Matt", "age": 39},
+		Record:     Entity{"name": "Matt", "age": int64(39)},
 	}
 
 	result, err := d.Run(o)
@@ -48,7 +48,7 @@ func TestDatabaseRun_InsertsARecordWithPrimaryKey(t *testing.T) {
 		t.Fatalf("expected a record stored at id %d", id)
 	}
 
-	if stored["age"] != 39 {
+	if stored["age"] != int64(39) {
 		t.Fatalf("expected stored record age %v, got %v", 39, stored["age"])
 	}
 }
@@ -70,12 +70,17 @@ func TestDatabaseRun_InsertRejectsMissingPrimaryKeyField(t *testing.T) {
 
 	o := InsertOperation{
 		Collection: "user",
-		Record:     Entity{"age": 39},
+		Record:     Entity{"age": int64(39)},
 	}
 
 	_, err = d.Run(o)
 	if err == nil {
 		t.Fatal("expected an error for a record missing the primary key field")
+	}
+
+	want := `record missing primary key "name" for collection "user"`
+	if err.Error() != want {
+		t.Fatalf("expected error %q, got %q", want, err.Error())
 	}
 }
 
