@@ -8,7 +8,7 @@ A database written in Go, with its own query language. Still early — this READ
 go run .
 ```
 
-This starts an interactive prompt (`>`) backed by a single in-memory database that lives for the session. It reads a statement, parses it, runs it against that database, and prints the result (or an error). Enter starts a new line rather than submitting — the REPL keeps reading until what you've typed forms a complete statement, then submits it automatically. While a statement is still incomplete, the prompt switches to a continuation prompt (`... `).
+This starts an interactive prompt (`tango>`) backed by a single in-memory database that lives for the session. It reads a statement, parses it, runs it against that database, and prints the result (or an error). Enter starts a new line rather than submitting — the REPL keeps reading until what you've typed forms a complete statement, then submits it automatically. While a statement is still incomplete, the prompt switches to a continuation prompt (`...>`), padded to line up with `tango>`. The prompts deliberately avoid the query language's operator characters, so `tango> >> user {...}` can't be misread.
 
 Exit with Ctrl+D, or by typing `exit` (case-insensitive) on its own. `exit` is a REPL command, not part of the query language — it isn't run against the database.
 
@@ -26,10 +26,10 @@ user {
 Type it into the REPL across as many lines as you like — it submits as soon as the closing `}` is read:
 
 ```
-> user {
-...   id: int @id
-...   name: text
-... }
+tango> user {
+  ...>   id: int @id
+  ...>   name: text
+  ...> }
 {user {
   id: int @id
   name: text
@@ -43,7 +43,7 @@ Type it into the REPL across as many lines as you like — it submits as soon as
 **`@auto`** makes an `int` field auto-increment, starting at `1`. It's most often used on the primary key, but works on any `int` field:
 
 ```
-> user { id: int @id @auto name: text }
+tango> user { id: int @id @auto name: text }
 {user {
   id: int @id @auto
   name: text
@@ -53,33 +53,33 @@ Type it into the REPL across as many lines as you like — it submits as soon as
 With `@auto`, insert must *not* supply that field — the database assigns it and hands the value back in the result:
 
 ```
-> >> user {name: "Matt"}
+tango> >> user {name: "Matt"}
 {map[id:1 name:Matt]}
-> >> user {name: "Sam"}
+tango> >> user {name: "Sam"}
 {map[id:2 name:Sam]}
-> >> user {id: 99, name: "nope"}
+tango> >> user {id: 99, name: "nope"}
 error: field "id" is auto-increment and must not be supplied for collection "user"
 ```
 
 `@auto` and `@id` are independent: `@id` is the record's identity, `@auto` means the database assigns the value. So a collection can use a key you choose alongside a generated sequence number, and a collection can have more than one `@auto` field — each keeps its own counter:
 
 ```
-> ticket { code: text @id number: int @auto title: text }
+tango> ticket { code: text @id number: int @auto title: text }
 {ticket {
   code: text @id
   number: int @auto
   title: text
 }}
-> >> ticket {code: "A" title: "first"}
+tango> >> ticket {code: "A" title: "first"}
 {map[code:A number:1 title:first]}
-> >> ticket {code: "B" title: "second"}
+tango> >> ticket {code: "B" title: "second"}
 {map[code:B number:2 title:second]}
 ```
 
 The database is the only thing that ever writes an `@auto` field — insert can't supply it (not even as `null`), and a merge payload can't set it:
 
 ```
-> ~> ticket(code: "A") {number: 9};
+tango> ~> ticket(code: "A") {number: 9};
 error: payload must not set auto-increment field "number" for collection "ticket"
 ```
 
@@ -88,7 +88,7 @@ That's what keeps the values unique without needing an index. Counter values are
 A collection can also be written on a single line:
 
 ```
-> user { name: text }
+tango> user { name: text }
 {user {
   name: text
 }}
@@ -97,7 +97,7 @@ A collection can also be written on a single line:
 ## Inserting a record
 
 ```
-> >> user {id: 1, name: "Matt"}
+tango> >> user {id: 1, name: "Matt"}
 {map[id:1 name:Matt]}
 ```
 
@@ -110,21 +110,21 @@ Field values can be a quoted string (`"Matt"`, with `\"` and `\\` supported as e
 Every value must match its field's declared type **exactly**, and a literal's type comes from how it's written: `39` is an `int`, `9.99` is a `float`, `"Matt"` is `text`, `true` is a `bool`. There are no conversions — not even integer to float, so a `float` field takes `10.0`, never `10`:
 
 ```
-> item { id: int @id price: float }
+tango> item { id: int @id price: float }
 {item {
   id: int @id
   price: float
 }}
-> >> item {id: 1 price: 10}
+tango> >> item {id: 1 price: 10}
 error: field "price": expected float, got int
-> >> item {id: 1 price: 10.0}
+tango> >> item {id: 1 price: 10.0}
 {map[id:1 price:10]}
 ```
 
 A field the schema doesn't declare is rejected too, so a typo can't silently vanish:
 
 ```
-> >> user {id: 1 nmae: "Matt"}
+tango> >> user {id: 1 nmae: "Matt"}
 error: field "nmae" not found in schema for collection "user"
 ```
 
@@ -137,24 +137,24 @@ Validation is all-or-nothing: the whole statement is checked before anything is 
 Every declared field is **required** unless it's marked `@optional`. An insert that leaves out a required field fails:
 
 ```
-> >> user {id: 2}
+tango> >> user {id: 2}
 error: field "name" is required for collection "user"
 ```
 
 `@optional` marks a field that's allowed to have no value. "No value" is written `null` (unquoted; `"null"` is just text), and leaving an optional field out of an insert means exactly the same thing as writing `null` for it:
 
 ```
-> profile { id: int @id name: text nickname: text @optional }
+tango> profile { id: int @id name: text nickname: text @optional }
 {profile {
   id: int @id
   name: text
   nickname: text @optional
 }}
-> >> profile {id: 1 name: "Matt"}
+tango> >> profile {id: 1 name: "Matt"}
 {map[id:1 name:Matt]}
-> >> profile {id: 2 name: "Sam" nickname: "S"}
+tango> >> profile {id: 2 name: "Sam" nickname: "S"}
 {map[id:2 name:Sam nickname:S]}
-> << profile => {*};
+tango> << profile => {*};
 id  name  nickname
 1   Matt  null
 2   Sam   S
@@ -169,14 +169,14 @@ A field with no value shows as `null` in a table, not as a blank cell, so it can
 - On a required field, `null` is an error in an insert, a merge payload, or a filter (a `null` filter on a required field could never match anything):
 
 ```
-> << profile(name: null);
+tango> << profile(name: null);
 error: field "name" is required and cannot be null
 ```
 
 A primary key always has a value, so `@id` and `@optional` together are an error:
 
 ```
-> x { id: int @id @optional }
+tango> x { id: int @id @optional }
 error: @id field "id" cannot be @optional
 ```
 
@@ -198,23 +198,23 @@ A comma inside a quoted string is part of the value, not a separator (`"Smith, M
 Inserting into a collection with a declared `@id` field enforces it: the record must include that field, and a duplicate value is rejected rather than overwritten:
 
 ```
-> >> user {id: 1 name: "Matt"}
+tango> >> user {id: 1 name: "Matt"}
 {map[id:1 name:Matt]}
-> >> user {id: 1 name: "Matt"}
+tango> >> user {id: 1 name: "Matt"}
 error: duplicate primary key 1 for collection "user"
 ```
 
 Inserting into a collection that hasn't been defined is also an error:
 
 ```
-> >> ghost {id: 1}
+tango> >> ghost {id: 1}
 error: collection "ghost" does not exist
 ```
 
 ## Querying records
 
 ```
-> << user(name: "Matt") => {id, name}
+tango> << user(name: "Matt") => {id, name}
 id  name
 1   Matt
 ```
@@ -222,7 +222,7 @@ id  name
 The filter in `(...)` matches on equality, and can hold zero or more comma-separated `field: value` conditions — all of them must match (there's no `or` yet). An empty filter (`()`) matches every record in the collection:
 
 ```
-> << user() => {id, name}
+tango> << user() => {id, name}
 id  name
 1   Matt
 2   Sam
@@ -231,14 +231,14 @@ id  name
 The projection (`=> {...}`) picks which fields to show, and controls both the columns and their order in the printed table. Filtering or projecting on a field the collection doesn't declare is an error, same as an unknown collection:
 
 ```
-> << user(nope: 1) => {id}
+tango> << user(nope: 1) => {id}
 error: field "nope" not found in schema for collection "user"
 ```
 
 A read that matches nothing prints a plain message rather than an empty table:
 
 ```
-> << user(id: 99) => {id}
+tango> << user(id: 99) => {id}
 no records found
 ```
 
@@ -247,7 +247,7 @@ The filter parens are optional when a projection follows directly — `<< user =
 **Wildcard** — `*` alone in the projection means every field currently in the schema, without having to name them:
 
 ```
-> << user(name: "Matt") => {*}
+tango> << user(name: "Matt") => {*}
 id  name
 1   Matt
 ```
@@ -257,7 +257,7 @@ id  name
 **Omitting the projection entirely returns a count, not records:**
 
 ```
-> << user(id: 1);
+tango> << user(id: 1);
 1
 ```
 
@@ -268,21 +268,21 @@ This is the same "count by default, `=>` opts into records" convention delete an
 `<< collection` with no filter or projection is a valid statement on its own — but it's *also* a valid prefix of a longer one (`<< user(id: 1) => {...}`). Since the REPL submits the moment something parses successfully, it needs to know which you mean. Structurally, the safe default is to keep waiting — a bare `<< user` alone assumes more might still be coming, the same as any other unclosed statement:
 
 ```
-> << user
-... 
+tango> << user
+  ...> 
 ```
 
 Add `;` to say "no, that's everything" explicitly — it returns a count of every record in the collection:
 
 ```
-> << user;
+tango> << user;
 2
 ```
 
 Combine it with `=> {*}` to get the records themselves, not just how many there are:
 
 ```
-> << user => {*};
+tango> << user => {*};
 id  name
 1   Matt
 2   Sam
@@ -293,37 +293,37 @@ id  name
 ## Deleting records
 
 ```
-> !> user(name: "Matt");
+tango> !> user(name: "Matt");
 1
 ```
 
 Delete uses `!>`, the same filter syntax as read — but unlike read, **the filter parens are always required, even when empty**. There's no bare `!> user;` shorthand for "delete everything," the way `<< user;` works for read: forgetting a filter is the single most common way to accidentally wipe out an entire collection, so the parens can't be silently skipped. To genuinely delete every record in a collection, say so explicitly with empty parens:
 
 ```
-> !> user();
+tango> !> user();
 1
 ```
 
 Omitting the parens entirely is a hard error, not a shortcut:
 
 ```
-> !> user;
+tango> !> user;
 error: delete requires an explicit filter, e.g. !> user() to match everything
 ```
 
 Deleting with a filter that matches nothing is a no-op, not an error:
 
 ```
-> !> user(id: 99);
+tango> !> user(id: 99);
 0
 ```
 
 By default, delete returns only a bare-integer count. Add `=> {...}` (or `=> {*}` for every field) to also get the deleted records back, limited to the projected fields — this is opt-in, unlike insert and read, where a return shape is either implicit or required:
 
 ```
-> !> user(id: 1);
+tango> !> user(id: 1);
 1
-> !> user(id: 1) => {id, name};
+tango> !> user(id: 1) => {id, name};
 id  name
 1   Matt
 ```
@@ -331,14 +331,14 @@ id  name
 ## Merging records
 
 ```
-> ~> user(id: 1) {name: "Matt"};
+tango> ~> user(id: 1) {name: "Matt"};
 1
 ```
 
 Merge (`~>`) bulk-updates every record matching a filter by merging new field values into each match — it's a **partial** update, so any existing field not named in the payload is left untouched:
 
 ```
-> << user => {*};
+tango> << user => {*};
 age  id  name
 40   1   Matt
 40   2   Pat
@@ -349,32 +349,32 @@ age  id  name
 Like delete, **the filter parens are always required, even when empty** — there's no bare `~> user {...}` shorthand, since merge can update an entire collection at once just as easily as delete can remove one:
 
 ```
-> ~> user() {age: 41};
+tango> ~> user() {age: 41};
 1
-> ~> user {name: "Matt"};
+tango> ~> user {name: "Matt"};
 error: merge requires an explicit filter, e.g. ~> user() to match everything
 ```
 
 Unlike delete, there's no create path — a merge whose filter matches nothing is a no-op, not an insert:
 
 ```
-> ~> user(id: 99) {name: "Matt"};
+tango> ~> user(id: 99) {name: "Matt"};
 0
 ```
 
 The payload can't include the collection's declared primary key field, whether or not it's `@auto` — the primary key is something you filter *on*, never something a merge payload sets (a bulk update could otherwise assign the same key to multiple rows at once):
 
 ```
-> ~> user(name: "Sam") {id: 5};
+tango> ~> user(name: "Sam") {id: 5};
 error: payload must not set primary key "id" for collection "user"
 ```
 
 Same count-vs-`RETURNING` result as delete: a bare-integer count by default, or the updated records (reflecting their state *after* the merge) with `=> {...}` or `=> {*}`:
 
 ```
-> ~> user(id: 1) {name: "Matt"};
+tango> ~> user(id: 1) {name: "Matt"};
 1
-> ~> user(id: 1) {name: "Matt"} => {id, name};
+tango> ~> user(id: 1) {name: "Matt"} => {id, name};
 id  name
 1   Matt
 ```

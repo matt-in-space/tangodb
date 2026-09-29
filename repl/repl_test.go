@@ -20,7 +20,7 @@ func TestRunREPL_DefinesInsertsMergesThenReadsInOneSession(t *testing.T) {
 
 	output := out.String()
 
-	if !strings.Contains(output, "> 1\n") {
+	if !strings.Contains(output, prompt+"1\n") {
 		t.Fatalf("expected the merge to report a bare count of 1, got: %q", output)
 	}
 
@@ -47,7 +47,7 @@ func TestRunREPL_DefinesInsertsDeletesThenReadsInOneSession(t *testing.T) {
 
 	output := out.String()
 
-	if !strings.Contains(output, "> 1\n") {
+	if !strings.Contains(output, prompt+"1\n") {
 		t.Fatalf("expected the delete to report a bare count of 1, got: %q", output)
 	}
 
@@ -94,7 +94,7 @@ func TestRunREPL_SubmitsOnlyOnceStatementIsComplete(t *testing.T) {
 
 	output := out.String()
 
-	if strings.Count(output, "... ") != 2 {
+	if strings.Count(output, continuationPrompt) != 2 {
 		t.Fatalf("expected 2 continuation prompts, got output: %q", output)
 	}
 
@@ -111,7 +111,7 @@ func TestRunREPL_SubmitsASingleLineStatementImmediately(t *testing.T) {
 
 	output := out.String()
 
-	if strings.Contains(output, "... ") {
+	if strings.Contains(output, continuationPrompt) {
 		t.Fatalf("did not expect a continuation prompt for a complete single-line statement, got: %q", output)
 	}
 
@@ -219,7 +219,7 @@ func TestRunREPL_BareReadWithSemicolonReturnsCountOnly(t *testing.T) {
 
 	output := out.String()
 
-	if !strings.Contains(output, "> 2\n") {
+	if !strings.Contains(output, prompt+"2\n") {
 		t.Fatalf("expected a bare count of 2, got: %q", output)
 	}
 
@@ -258,7 +258,7 @@ func TestRunREPL_BareReadWithoutSemicolonWaitsForMore(t *testing.T) {
 
 	output := out.String()
 
-	if !strings.HasSuffix(strings.TrimRight(output, "\n"), "... ") {
+	if !strings.HasSuffix(strings.TrimRight(output, "\n"), continuationPrompt) {
 		t.Fatalf("expected the REPL to still be waiting on a continuation prompt, got: %q", output)
 	}
 }
