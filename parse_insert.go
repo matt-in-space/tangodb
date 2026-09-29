@@ -32,10 +32,6 @@ func (p *parser) parseInsert() (Operation, error) {
 		return nil, err
 	}
 
-	if err := p.expect(tokenArrow); err != nil {
-		return nil, err
-	}
-
 	record, err := p.parseRecordLiteral()
 	if err != nil {
 		return nil, err

@@ -6,7 +6,7 @@ import (
 )
 
 func TestParseInsert_ParsesFlatValues(t *testing.T) {
-	o, err := ParseInsert(`>> user => {id: 1, name: "Matt", age: 39}`)
+	o, err := ParseInsert(`>> user {id: 1, name: "Matt", age: 39}`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -29,7 +29,7 @@ func TestParseInsert_ParsesFlatValues(t *testing.T) {
 }
 
 func TestParseInsert_ParsesFloats(t *testing.T) {
-	o, err := ParseInsert(`>> product => {price: 9.99}`)
+	o, err := ParseInsert(`>> product {price: 9.99}`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -40,7 +40,7 @@ func TestParseInsert_ParsesFloats(t *testing.T) {
 }
 
 func TestParseInsert_AllowsTrailingComma(t *testing.T) {
-	o, err := ParseInsert(`>> user => {id: 1,}`)
+	o, err := ParseInsert(`>> user {id: 1,}`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestParseInsert_AllowsTrailingComma(t *testing.T) {
 }
 
 func TestParseInsert_AllowsEmptyRecord(t *testing.T) {
-	o, err := ParseInsert(`>> user => {}`)
+	o, err := ParseInsert(`>> user {}`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestParseInsert_AllowsEmptyRecord(t *testing.T) {
 }
 
 func TestParseInsert_UnescapesStrings(t *testing.T) {
-	o, err := ParseInsert(`>> user => {name: "say \"hi\" \\ bye"}`)
+	o, err := ParseInsert(`>> user {name: "say \"hi\" \\ bye"}`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestParseInsert_UnescapesStrings(t *testing.T) {
 }
 
 func TestParseInsert_ToleratesTrailingSemicolon(t *testing.T) {
-	o, err := ParseInsert(`>> user => {id: 1};`)
+	o, err := ParseInsert(`>> user {id: 1};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -85,13 +85,13 @@ func TestParseInsert_ToleratesTrailingSemicolon(t *testing.T) {
 }
 
 func TestParseInsert_RejectsMissingComma(t *testing.T) {
-	if _, err := ParseInsert(`>> user => {id: 1 name: "Matt"}`); err == nil {
+	if _, err := ParseInsert(`>> user {id: 1 name: "Matt"}`); err == nil {
 		t.Fatal("expected an error for a missing comma between fields")
 	}
 }
 
 func TestParseInsert_RejectsUnterminatedString(t *testing.T) {
-	if _, err := ParseInsert(`>> user => {name: "Matt`); !errors.Is(err, ErrIncompleteInput) {
+	if _, err := ParseInsert(`>> user {name: "Matt`); !errors.Is(err, ErrIncompleteInput) {
 		t.Fatalf("expected ErrIncompleteInput for an unterminated string, got %v", err)
 	}
 }
@@ -102,14 +102,14 @@ func TestParseInsert_RejectsIncompleteInsertOperator(t *testing.T) {
 	}
 }
 
-func TestParseInsert_RejectsIncompleteArrow(t *testing.T) {
-	if _, err := ParseInsert(`>> user =`); !errors.Is(err, ErrIncompleteInput) {
-		t.Fatalf("expected ErrIncompleteInput for a lone '=', got %v", err)
+func TestParseInsert_RejectsIncompleteWithNoRecordLiteral(t *testing.T) {
+	if _, err := ParseInsert(`>> user`); !errors.Is(err, ErrIncompleteInput) {
+		t.Fatalf("expected ErrIncompleteInput for a collection name with no record literal yet, got %v", err)
 	}
 }
 
 func TestParse_DispatchesToInsert(t *testing.T) {
-	o, err := Parse(`>> user => {id: 1}`)
+	o, err := Parse(`>> user {id: 1}`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}

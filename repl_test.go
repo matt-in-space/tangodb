@@ -84,7 +84,7 @@ func TestRunREPL_ReportsAnErrorAndRecovers(t *testing.T) {
 }
 
 func TestRunREPL_DefinesThenInsertsInOneSession(t *testing.T) {
-	in := strings.NewReader("user { id: int @id name: text }\n>> user => {id: 1, name: \"Matt\"}\n")
+	in := strings.NewReader("user { id: int @id name: text }\n>> user {id: 1, name: \"Matt\"}\n")
 	var out bytes.Buffer
 
 	RunREPL(in, &out)
@@ -101,7 +101,7 @@ func TestRunREPL_DefinesThenInsertsInOneSession(t *testing.T) {
 }
 
 func TestRunREPL_InsertReportsDuplicateKeyError(t *testing.T) {
-	in := strings.NewReader("user { id: int @id }\n>> user => {id: 1}\n>> user => {id: 1}\n")
+	in := strings.NewReader("user { id: int @id }\n>> user {id: 1}\n>> user {id: 1}\n")
 	var out bytes.Buffer
 
 	RunREPL(in, &out)
@@ -114,7 +114,7 @@ func TestRunREPL_InsertReportsDuplicateKeyError(t *testing.T) {
 }
 
 func TestRunREPL_InsertReportsUnknownCollectionError(t *testing.T) {
-	in := strings.NewReader(">> user => {id: 1}\n")
+	in := strings.NewReader(">> user {id: 1}\n")
 	var out bytes.Buffer
 
 	RunREPL(in, &out)
@@ -129,8 +129,8 @@ func TestRunREPL_InsertReportsUnknownCollectionError(t *testing.T) {
 func TestRunREPL_DefinesInsertsThenReadsInOneSession(t *testing.T) {
 	in := strings.NewReader(
 		"user { id: int @id name: text }\n" +
-			">> user => {id: 1, name: \"Matt\"}\n" +
-			">> user => {id: 2, name: \"Sam\"}\n" +
+			">> user {id: 1, name: \"Matt\"}\n" +
+			">> user {id: 2, name: \"Sam\"}\n" +
 			"<< user(name: \"Sam\") => {id, name}\n",
 	)
 	var out bytes.Buffer
@@ -155,8 +155,8 @@ func TestRunREPL_DefinesInsertsThenReadsInOneSession(t *testing.T) {
 func TestRunREPL_BareReadWithSemicolonReturnsEverything(t *testing.T) {
 	in := strings.NewReader(
 		"user { id: int @id name: text }\n" +
-			">> user => {id: 1, name: \"Matt\"}\n" +
-			">> user => {id: 2, name: \"Sam\"}\n" +
+			">> user {id: 1, name: \"Matt\"}\n" +
+			">> user {id: 2, name: \"Sam\"}\n" +
 			"<< user;\n",
 	)
 	var out bytes.Buffer

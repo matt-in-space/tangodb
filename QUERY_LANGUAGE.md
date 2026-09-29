@@ -124,24 +124,26 @@ Four kinds, distinguished by leading symbol/keyword:
 
 ### Insert
 
-Reuses the same nested-object-literal shape as reads return:
+The record literal — the same nested-object-literal shape reads return — comes directly after the collection name, no `=>` in front of it:
 
 ```
->> user => {id: 1, name: "Matt", age: 39, address: {street: "123 Main St", city: "Minneapolis"}}
+>> user {id: 1, name: "Matt", age: 39, address: {street: "123 Main St", city: "Minneapolis"}}
 ```
+
+This keeps `=>` meaning one single thing everywhere in the language: "the shape of what comes back," same job it does in a read's projection. `(...)`, correspondingly, always means "identify an existing record" (a read/delete/merge filter) — insert has nothing to identify, so it doesn't use `(...)` at all.
 
 Batch form — separate with &:
 
 ```
->> user => 
+>> user
   {id: 1, name: "Matt", address: {city: "Minneapolis"}} &
   {id: 2, name: "Sam", address: {city: "St. Paul"}}
 ```
 
-**Returning a value from the write** — second `=>` projects the result, same operator, new meaning in context:
+**Returning a value from the write** — `=>` projects the result, the same meaning it has everywhere else:
 
 ```
->> user => {name: "Matt", age: 39} => {id}
+>> user {name: "Matt", age: 39} => {id}
 ```
 
 ### Merge / Upsert
@@ -179,3 +181,4 @@ Return what was deleted, same `=>` convention as insert:
 - Physical storage: whether a `@collection` nested inline is stored colocated with its parent (for locality) or fully separately. Logically it's the same either way — this is an optimization decision, not a semantics one.
 - Ceremony around unbounded bulk deletes (e.g. `del user(address.city: "Minneapolis")` with no id) — should this require something extra before it runs?
 - Full grammar for joins across two independently-queried collections, beyond the declared-relation traversal case.
+- Merge's `=>` (`~> user(id: 1) => {name: "Matt", age: 39}`) still uses `=>` for the write payload — the same overload insert's grammar was changed to avoid (`=>` should mean only "shape of what comes back," everywhere). Worth revisiting merge's grammar the same way when it's actually implemented, e.g. `~> user(id: 1) {name: "Matt", age: 39}`.

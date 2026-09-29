@@ -53,11 +53,11 @@ Type it into the REPL across as many lines as you like — it submits as soon as
 With `@auto`, insert must *not* supply that field — the database assigns it and hands the value back in the result:
 
 ```
-> >> user => {name: "Matt"}
+> >> user {name: "Matt"}
 {map[id:1 name:Matt]}
-> >> user => {name: "Sam"}
+> >> user {name: "Sam"}
 {map[id:2 name:Sam]}
-> >> user => {id: 99, name: "nope"}
+> >> user {id: 99, name: "nope"}
 error: field "id" is auto-increment and must not be supplied for collection "user"
 ```
 
@@ -73,25 +73,27 @@ A collection can also be written on a single line:
 ## Inserting a record
 
 ```
-> >> user => {id: 1, name: "Matt"}
+> >> user {id: 1, name: "Matt"}
 {map[id:1 name:Matt]}
 ```
+
+The record literal comes directly after the collection name — no `=>` before it. That keeps `=>`'s meaning consistent across the whole language: it always means "the shape of what comes back," the same job it does in a read's projection. `(...)`, in turn, always means "identify an existing record" (a read/delete/merge filter) — never "here are values for a new one." Insert has no existing record to identify, so it doesn't use `(...)` at all.
 
 Field values can be a quoted string (`"Matt"`, with `\"` and `\\` supported as escapes) or a number — a plain integer (`39`) or a decimal (`9.99`). Fields are separated by commas, with an optional trailing comma before the closing `}`.
 
 Inserting into a collection with a declared `@id` field enforces it: the record must include that field, and a duplicate value is rejected rather than overwritten:
 
 ```
-> >> user => {id: 1}
+> >> user {id: 1}
 {map[id:1]}
-> >> user => {id: 1}
+> >> user {id: 1}
 error: duplicate primary key 1 for collection "user"
 ```
 
 Inserting into a collection that hasn't been defined is also an error:
 
 ```
-> >> ghost => {id: 1}
+> >> ghost {id: 1}
 error: collection "ghost" does not exist
 ```
 
@@ -146,7 +148,7 @@ id  name
 2   Sam
 ```
 
-`;` also works after a filter with no projection (`<< user(name: "Matt");`), and is harmlessly tolerated as an optional trailing marker at the end of any statement (`>> user => {id: 1};`, `user { id: int };`) — it's never required except to resolve this one ambiguity.
+`;` also works after a filter with no projection (`<< user(name: "Matt");`), and is harmlessly tolerated as an optional trailing marker at the end of any statement (`>> user {id: 1};`, `user { id: int };`) — it's never required except to resolve this one ambiguity.
 
 ## Status
 
