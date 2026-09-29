@@ -253,8 +253,44 @@ func TestDatabaseRun_MergeRejectsUnknownProjectionField(t *testing.T) {
 func TestMergeResult_StringWithCountOnly(t *testing.T) {
 	r := MergeResult{Count: 3}
 
-	if got := r.String(); got != "3 updated" {
-		t.Fatalf("expected %q, got %q", "3 updated", got)
+	if got := r.String(); got != "3" {
+		t.Fatalf("expected %q, got %q", "3", got)
+	}
+}
+
+func TestDatabaseRun_MergeWithWildcardProjectionReturnsAllFields(t *testing.T) {
+	d := setupUserCollectionForMerge(t)
+
+	result, err := d.Run(MergeOperation{
+		Collection: "user",
+		Filter:     map[string]any{"id": int64(1)},
+		Payload:    Entity{"name": "Matt"},
+		Projection: []string{"*"},
+	})
+	if err != nil {
+		t.Fatalf("Failed to merge, err: %v", err)
+	}
+
+	mergeResult := result.(MergeResult)
+
+	if len(mergeResult.Records) != 1 {
+		t.Fatalf("expected 1 returned record, got %d", len(mergeResult.Records))
+	}
+
+	want := map[string]bool{"id": true, "name": true, "age": true}
+
+	if len(mergeResult.Projection) != len(want) {
+		t.Fatalf("expected %d projected fields, got %v", len(want), mergeResult.Projection)
+	}
+
+	for _, field := range mergeResult.Projection {
+		if !want[field] {
+			t.Fatalf("unexpected field %q in wildcard projection %v", field, mergeResult.Projection)
+		}
+	}
+
+	if mergeResult.Records[0]["name"] != "Matt" {
+		t.Fatalf("expected post-merge name %q, got %v", "Matt", mergeResult.Records[0]["name"])
 	}
 }
 

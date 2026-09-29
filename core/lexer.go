@@ -18,6 +18,7 @@ const (
 	tokenSemicolon
 	tokenLParen
 	tokenRParen
+	tokenStar
 	tokenInsertOp // >>
 	tokenReadOp   // <<
 	tokenDeleteOp // !>
@@ -70,6 +71,10 @@ func lex(input string) ([]token, error) {
 
 		case r == ')':
 			tokens = append(tokens, token{kind: tokenRParen, value: ")"})
+			i++
+
+		case r == '*':
+			tokens = append(tokens, token{kind: tokenStar, value: "*"})
 			i++
 
 		case r == '@':

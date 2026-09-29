@@ -12,7 +12,7 @@ func TestRunREPL_DefinesInsertsMergesThenReadsInOneSession(t *testing.T) {
 			">> user {id: 1, name: \"Sam\", age: 40}\n" +
 			">> user {id: 2, name: \"Pat\", age: 40}\n" +
 			"~> user(id: 1) {name: \"Matt\"};\n" +
-			"<< user;\n",
+			"<< user => {*};\n",
 	)
 	var out bytes.Buffer
 
@@ -20,8 +20,8 @@ func TestRunREPL_DefinesInsertsMergesThenReadsInOneSession(t *testing.T) {
 
 	output := out.String()
 
-	if !strings.Contains(output, "1 updated") {
-		t.Fatalf("expected the merge to report 1 updated, got: %q", output)
+	if !strings.Contains(output, "> 1\n") {
+		t.Fatalf("expected the merge to report a bare count of 1, got: %q", output)
 	}
 
 	if !strings.Contains(output, "40   1   Matt") {
@@ -39,7 +39,7 @@ func TestRunREPL_DefinesInsertsDeletesThenReadsInOneSession(t *testing.T) {
 			">> user {id: 1, name: \"Matt\"}\n" +
 			">> user {id: 2, name: \"Sam\"}\n" +
 			"!> user(name: \"Matt\");\n" +
-			"<< user;\n",
+			"<< user => {*};\n",
 	)
 	var out bytes.Buffer
 
@@ -47,8 +47,8 @@ func TestRunREPL_DefinesInsertsDeletesThenReadsInOneSession(t *testing.T) {
 
 	output := out.String()
 
-	if !strings.Contains(output, "1 deleted") {
-		t.Fatalf("expected the delete to report 1 deleted, got: %q", output)
+	if !strings.Contains(output, "> 1\n") {
+		t.Fatalf("expected the delete to report a bare count of 1, got: %q", output)
 	}
 
 	if !strings.Contains(output, "id  name\n2   Sam") {
@@ -206,12 +206,34 @@ func TestRunREPL_DefinesInsertsThenReadsInOneSession(t *testing.T) {
 	}
 }
 
-func TestRunREPL_BareReadWithSemicolonReturnsEverything(t *testing.T) {
+func TestRunREPL_BareReadWithSemicolonReturnsCountOnly(t *testing.T) {
 	in := strings.NewReader(
 		"user { id: int @id name: text }\n" +
 			">> user {id: 1, name: \"Matt\"}\n" +
 			">> user {id: 2, name: \"Sam\"}\n" +
 			"<< user;\n",
+	)
+	var out bytes.Buffer
+
+	RunREPL(in, &out)
+
+	output := out.String()
+
+	if !strings.Contains(output, "> 2\n") {
+		t.Fatalf("expected a bare count of 2, got: %q", output)
+	}
+
+	if strings.Contains(output, "id  name") {
+		t.Fatalf("did not expect a table for a bare read with no projection, got: %q", output)
+	}
+}
+
+func TestRunREPL_WildcardProjectionReturnsEverythingExplicitly(t *testing.T) {
+	in := strings.NewReader(
+		"user { id: int @id name: text }\n" +
+			">> user {id: 1, name: \"Matt\"}\n" +
+			">> user {id: 2, name: \"Sam\"}\n" +
+			"<< user => {*};\n",
 	)
 	var out bytes.Buffer
 

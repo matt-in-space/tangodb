@@ -6,7 +6,7 @@ A working spec for the schema and query syntax designed in conversation. Everyth
 
 - Code-like, not English-like. No `SELECT`/`FROM`/`WHERE` sentence-reading. No pluralization games — collection and field names are always singular.
 - Symbols carry direction/intent (`<<` out, `>>` in, `!>` destroy). `!` is physically distant from `<`, `>`, `~`, and `=` on a standard keyboard, so the destructive operation isn't one keystroke away from any of the others — a word-form keyword (e.g. `del`) was considered instead but rejected, since it would collide with the "a bare identifier could still become a collection name" ambiguity every schema definition already has to resolve.
-- One shared grammar for "what shape of data am I looking at," reused across schema, filters, and projections.
+- One shared grammar for "what shape of data am I looking at," reused across schema, filters, and projections — including the `*` wildcard, which means "every field currently in the schema" wherever a projection appears (`<< collection(filter) => {*}`, `!> collection(filter) => {*}`, `~> collection(filter) {payload} => {*}`).
 
 ---
 
@@ -104,6 +104,14 @@ Four kinds, distinguished by leading symbol/keyword:
 << user(address.city: "Minneapolis") => {id, name}
 ```
 
+**Wildcard** — `*` alone in the projection means every field currently in the schema. It must be the sole content of the braces; combining it with named fields is a parse error:
+
+```
+<< user(id: 1) => {*}
+```
+
+**Omitting the projection entirely returns a count, not records** — `<< user(id: 1)` (with no `=>` at all) reports how many records matched, without materializing any of them. This is the same "count by default, `=>` opts into records" convention delete and merge already use; `=> {*}` is the explicit way to get everything back instead.
+
 **Bound variables** — bind a name to reach into nested structure explicitly in the projection:
 
 ```
@@ -164,11 +172,12 @@ Like delete, the filter parens are **mandatory**, even when empty — merge is a
 
 The update is a **partial merge**, not a full replace — only the fields named in the payload change; anything else already on a matched record is left untouched. Every record matching the filter is updated (no attempt to detect or reject multiple matches — the filter means the same thing here as it does for read and delete). The payload must not include the collection's declared primary key field, whether or not that field is `@auto` — the primary key is something you filter *on*, never something a merge payload sets, since a bulk update could otherwise assign the same key value to more than one row at once.
 
-Return value follows the same count-vs-`RETURNING` convention as delete:
+Return value follows the same count-vs-`RETURNING` convention as delete — and the count is a bare integer, no wording around it:
 
 ```
-~> user(id: 1) {name: "Matt"}                  -- returns a count only
+~> user(id: 1) {name: "Matt"}                  -- returns 1 (just the count)
 ~> user(id: 1) {name: "Matt"} => {id, name}    -- returns the updated record(s) too
+~> user(id: 1) {name: "Matt"} => {*}           -- returns the updated record(s), every field
 ```
 
 ### Delete
@@ -186,11 +195,12 @@ Full pipeline form — what the sugar expands to, and the escape hatch for condi
 << user(address.city: "Minneapolis") => u | delete(u)
 ```
 
-Return what was deleted, same `=>` convention as insert — but unlike insert, this is genuinely optional either way: with no `=>`, delete returns only a count (Postgres plain-`DELETE` style); with `=>`, it also returns the deleted records, limited to the projected fields (Postgres `DELETE ... RETURNING` style):
+Return what was deleted, same `=>` convention as insert — but unlike insert, this is genuinely optional either way: with no `=>`, delete returns only a bare-integer count (Postgres plain-`DELETE` style); with `=>`, it also returns the deleted records, limited to the projected fields (Postgres `DELETE ... RETURNING` style):
 
 ```
-!> user(id: 1)                  -- returns a count only
+!> user(id: 1)                  -- returns 1 (just the count)
 !> user(id: 1) => {id, name}    -- returns the deleted record(s) too
+!> user(id: 1) => {*}           -- returns the deleted record(s), every field
 ```
 
 ---

@@ -50,6 +50,27 @@ func TestParseMerge_ParsesFilterPayloadAndProjection(t *testing.T) {
 	}
 }
 
+func TestParseMerge_ParsesWildcardProjection(t *testing.T) {
+	o, err := ParseMerge(`~> user(id: 1) {name: "Matt"} => {*};`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if len(o.Projection) != 1 || o.Projection[0] != "*" {
+		t.Fatalf("expected projection [*], got %v", o.Projection)
+	}
+}
+
+func TestParseMerge_RejectsWildcardMixedWithNamedFields(t *testing.T) {
+	if _, err := ParseMerge(`~> user(id: 1) {name: "Matt"} => {*, id};`); err == nil {
+		t.Fatal("expected an error for a wildcard combined with named fields")
+	}
+
+	if _, err := ParseMerge(`~> user(id: 1) {name: "Matt"} => {id, *};`); err == nil {
+		t.Fatal("expected an error for named fields combined with a wildcard")
+	}
+}
+
 func TestParseMerge_RejectsMissingFilterParens(t *testing.T) {
 	if _, err := ParseMerge(`~> user {name: "Matt"};`); err == nil {
 		t.Fatal("expected an error for a merge with no filter parens at all")

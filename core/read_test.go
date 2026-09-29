@@ -81,10 +81,33 @@ func TestDatabaseRun_ReadReturnsNoRecordsWhenNothingMatches(t *testing.T) {
 	}
 }
 
-func TestDatabaseRun_ReadWithNilProjectionReturnsAllSchemaFields(t *testing.T) {
+func TestDatabaseRun_ReadWithNilProjectionReturnsCountOnly(t *testing.T) {
 	d := setupUserCollectionWithRecords(t)
 
 	result, err := d.Run(ReadOperation{Collection: "user", Filter: map[string]any{}, Projection: nil})
+	if err != nil {
+		t.Fatalf("Failed to read, err: %v", err)
+	}
+
+	readResult := result.(ReadResult)
+
+	if readResult.Count != 2 {
+		t.Fatalf("expected count 2, got %d", readResult.Count)
+	}
+
+	if readResult.Records != nil {
+		t.Fatalf("expected no records to be returned without a projection, got %v", readResult.Records)
+	}
+
+	if readResult.Projection != nil {
+		t.Fatalf("expected no projection to be set, got %v", readResult.Projection)
+	}
+}
+
+func TestDatabaseRun_ReadWithWildcardProjectionReturnsAllSchemaFields(t *testing.T) {
+	d := setupUserCollectionWithRecords(t)
+
+	result, err := d.Run(ReadOperation{Collection: "user", Filter: map[string]any{}, Projection: []string{"*"}})
 	if err != nil {
 		t.Fatalf("Failed to read, err: %v", err)
 	}
@@ -99,8 +122,12 @@ func TestDatabaseRun_ReadWithNilProjectionReturnsAllSchemaFields(t *testing.T) {
 
 	for _, field := range readResult.Projection {
 		if !want[field] {
-			t.Fatalf("unexpected field %q in default projection %v", field, readResult.Projection)
+			t.Fatalf("unexpected field %q in wildcard projection %v", field, readResult.Projection)
 		}
+	}
+
+	if len(readResult.Records) != 2 {
+		t.Fatalf("expected 2 records, got %d", len(readResult.Records))
 	}
 }
 

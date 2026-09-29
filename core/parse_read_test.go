@@ -82,7 +82,7 @@ func TestParseRead_SemicolonTerminatesWithNoFilterOrProjection(t *testing.T) {
 	}
 
 	if o.Projection != nil {
-		t.Fatalf("expected a nil projection (meaning \"all fields\"), got %v", o.Projection)
+		t.Fatalf("expected a nil projection (meaning \"count only\"), got %v", o.Projection)
 	}
 }
 
@@ -109,6 +109,29 @@ func TestParseRead_SemicolonToleratedOnAFullyExplicitStatement(t *testing.T) {
 
 	if len(o.Projection) != 1 || o.Projection[0] != "id" {
 		t.Fatalf("expected projection [id], got %v", o.Projection)
+	}
+}
+
+func TestParseRead_ParsesWildcardProjection(t *testing.T) {
+	o, err := ParseRead(`<< user => {*};`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if len(o.Projection) != 1 || o.Projection[0] != "*" {
+		t.Fatalf("expected projection [*], got %v", o.Projection)
+	}
+}
+
+func TestParseRead_RejectsWildcardMixedWithNamedFieldsAfter(t *testing.T) {
+	if _, err := ParseRead(`<< user => {*, id};`); err == nil {
+		t.Fatal("expected an error for a wildcard combined with named fields")
+	}
+}
+
+func TestParseRead_RejectsWildcardMixedWithNamedFieldsBefore(t *testing.T) {
+	if _, err := ParseRead(`<< user => {id, *};`); err == nil {
+		t.Fatal("expected an error for named fields combined with a wildcard")
 	}
 }
 

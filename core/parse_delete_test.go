@@ -61,6 +61,27 @@ func TestParseDelete_EmptyProjectionIsDistinctFromNoProjection(t *testing.T) {
 	}
 }
 
+func TestParseDelete_ParsesWildcardProjection(t *testing.T) {
+	o, err := ParseDelete(`!> user(id: 1) => {*};`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if len(o.Projection) != 1 || o.Projection[0] != "*" {
+		t.Fatalf("expected projection [*], got %v", o.Projection)
+	}
+}
+
+func TestParseDelete_RejectsWildcardMixedWithNamedFields(t *testing.T) {
+	if _, err := ParseDelete(`!> user(id: 1) => {*, id};`); err == nil {
+		t.Fatal("expected an error for a wildcard combined with named fields")
+	}
+
+	if _, err := ParseDelete(`!> user(id: 1) => {id, *};`); err == nil {
+		t.Fatal("expected an error for named fields combined with a wildcard")
+	}
+}
+
 func TestParseDelete_RejectsMissingFilterParens(t *testing.T) {
 	if _, err := ParseDelete(`!> user;`); err == nil {
 		t.Fatal("expected an error for a delete with no filter parens at all")

@@ -53,8 +53,8 @@ func (p *parser) parseRead() (Operation, error) {
 	// Anything other than '=>' (handled above) or ';'/EOF (handled by
 	// expectEndOfStatement) is caught there as an unexpected token —
 	// e.g. `<< user)`. When neither '=>' nor EOF was seen, projection
-	// stays nil, meaning "not specified" (db.read resolves that to every
-	// field in the collection's schema).
+	// stays nil, meaning "not specified" (db.read resolves that to a
+	// count-only result, same as delete/merge).
 	if err := p.expectEndOfStatement(); err != nil {
 		return nil, err
 	}
@@ -107,6 +107,22 @@ func (p *parser) parseFilter() (map[string]any, error) {
 func (p *parser) parseProjection() ([]string, error) {
 	if err := p.expect(tokenLBrace); err != nil {
 		return nil, err
+	}
+
+	// A wildcard must be the sole content of the braces — `{*}` is the
+	// whole projection. Anything else (`{id, *}` or `{*, id}`) is caught
+	// by the ordinary field-list logic below: expectIdent() rejects '*'
+	// as not an identifier, and this branch's own expect(tokenRBrace)
+	// rejects a ',' immediately after '*'. No bespoke "can't mix" check
+	// is needed.
+	if p.peek().kind == tokenStar {
+		p.next()
+
+		if err := p.expect(tokenRBrace); err != nil {
+			return nil, err
+		}
+
+		return []string{"*"}, nil
 	}
 
 	var fields []string

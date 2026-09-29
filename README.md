@@ -130,6 +130,25 @@ no records found
 
 The filter parens are optional when a projection follows directly — `<< user => {id, name}` works the same as `<< user() => {id, name}`.
 
+**Wildcard** — `*` alone in the projection means every field currently in the schema, without having to name them:
+
+```
+> << user(name: "Matt") => {*}
+id  name
+1   Matt
+```
+
+`*` must be the only thing in the braces — combining it with named fields (`{*, id}` or `{id, *}`) is a parse error, not silently merged.
+
+**Omitting the projection entirely returns a count, not records:**
+
+```
+> << user(id: 1);
+1
+```
+
+This is the same "count by default, `=>` opts into records" convention delete and merge use below — `<< user(id: 1) => {*};` is the explicit way to get the record itself back instead of just knowing it exists.
+
 ### Selecting everything
 
 `<< collection` with no filter or projection is a valid statement on its own — but it's *also* a valid prefix of a longer one (`<< user(id: 1) => {...}`). Since the REPL submits the moment something parses successfully, it needs to know which you mean. Structurally, the safe default is to keep waiting — a bare `<< user` alone assumes more might still be coming, the same as any other unclosed statement:
@@ -139,10 +158,17 @@ The filter parens are optional when a projection follows directly — `<< user =
 ... 
 ```
 
-Add `;` to say "no, that's everything" explicitly — it returns every record with every schema field:
+Add `;` to say "no, that's everything" explicitly — it returns a count of every record in the collection:
 
 ```
 > << user;
+2
+```
+
+Combine it with `=> {*}` to get the records themselves, not just how many there are:
+
+```
+> << user => {*};
 id  name
 1   Matt
 2   Sam
@@ -154,14 +180,14 @@ id  name
 
 ```
 > !> user(name: "Matt");
-1 deleted
+1
 ```
 
 Delete uses `!>`, the same filter syntax as read — but unlike read, **the filter parens are always required, even when empty**. There's no bare `!> user;` shorthand for "delete everything," the way `<< user;` works for read: forgetting a filter is the single most common way to accidentally wipe out an entire collection, so the parens can't be silently skipped. To genuinely delete every record in a collection, say so explicitly with empty parens:
 
 ```
 > !> user();
-1 deleted
+1
 ```
 
 Omitting the parens entirely is a hard error, not a shortcut:
@@ -175,14 +201,14 @@ Deleting with a filter that matches nothing is a no-op, not an error:
 
 ```
 > !> user(id: 99);
-0 deleted
+0
 ```
 
-By default, delete returns only a count. Add `=> {...}` to also get the deleted records back, limited to the projected fields — this is opt-in, unlike insert and read, where a return shape is either implicit or required:
+By default, delete returns only a bare-integer count. Add `=> {...}` (or `=> {*}` for every field) to also get the deleted records back, limited to the projected fields — this is opt-in, unlike insert and read, where a return shape is either implicit or required:
 
 ```
 > !> user(id: 1);
-1 deleted
+1
 > !> user(id: 1) => {id, name};
 id  name
 1   Matt
@@ -192,13 +218,13 @@ id  name
 
 ```
 > ~> user(id: 1) {name: "Matt"};
-1 updated
+1
 ```
 
 Merge (`~>`) bulk-updates every record matching a filter by merging new field values into each match — it's a **partial** update, so any existing field not named in the payload is left untouched:
 
 ```
-> << user;
+> << user => {*};
 age  id  name
 40   1   Matt
 40   2   Pat
@@ -210,7 +236,7 @@ Like delete, **the filter parens are always required, even when empty** — ther
 
 ```
 > ~> user() {status: "inactive"};
-1 updated
+1
 > ~> user {name: "Matt"};
 error: merge requires an explicit filter, e.g. ~> user() to match everything
 ```
@@ -219,7 +245,7 @@ Unlike delete, there's no create path — a merge whose filter matches nothing i
 
 ```
 > ~> user(id: 99) {name: "Matt"};
-0 updated
+0
 ```
 
 The payload can't include the collection's declared primary key field, whether or not it's `@auto` — the primary key is something you filter *on*, never something a merge payload sets (a bulk update could otherwise assign the same key to multiple rows at once):
@@ -229,11 +255,11 @@ The payload can't include the collection's declared primary key field, whether o
 error: payload must not set primary key "id" for collection "user"
 ```
 
-Same count-vs-`RETURNING` result as delete: a count by default, or the updated records (reflecting their state *after* the merge) with `=> {...}`:
+Same count-vs-`RETURNING` result as delete: a bare-integer count by default, or the updated records (reflecting their state *after* the merge) with `=> {...}` or `=> {*}`:
 
 ```
 > ~> user(id: 1) {name: "Matt"};
-1 updated
+1
 > ~> user(id: 1) {name: "Matt"} => {id, name};
 id  name
 1   Matt
@@ -241,4 +267,4 @@ id  name
 
 ## Status
 
-The REPL currently supports defining a collection, inserting a flat record, reading records back with a basic equality filter and projection (including "select everything" via `;`), deleting records with a mandatory filter and an optional count-vs-returning result, and merging (bulk partial-updating) records with the same mandatory-filter and count-vs-returning shape. Not yet supported: nested/embedded values (in records, filters, or projections), the write's return-projection clause (`=> {id}`), batch inserts (`&`), and pipeline stages like `order`/`limit` — see `QUERY_LANGUAGE.md` for the full target language.
+The REPL currently supports defining a collection, inserting a flat record, reading records back with a basic equality filter and projection (a `*` wildcard for every field, or omit the projection entirely for just a count), deleting records with a mandatory filter and the same count-vs-returning shape, and merging (bulk partial-updating) records the same way. Not yet supported: nested/embedded values (in records, filters, or projections), the write's return-projection clause (`=> {id}`), batch inserts (`&`), and pipeline stages like `order`/`limit` — see `QUERY_LANGUAGE.md` for the full target language.

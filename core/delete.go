@@ -32,6 +32,8 @@ func (db *Database) delete(collectionName string, filter map[string]any, project
 	wantRecords := projection != nil
 
 	if wantRecords {
+		projection = expandProjection(collection, projection)
+
 		for _, field := range projection {
 			if _, ok := collection.data[field]; !ok {
 				return nil, fmt.Errorf("field %q not found in schema for collection %q", field, collectionName)
@@ -80,13 +82,5 @@ func (db *Database) delete(collectionName string, filter map[string]any, project
 }
 
 func (r DeleteResult) String() string {
-	if r.Projection == nil {
-		return fmt.Sprintf("%d deleted", r.Count)
-	}
-
-	if len(r.Records) == 0 {
-		return "no records found"
-	}
-
-	return renderTable(r.Projection, r.Records)
+	return renderCountOrTable(r.Count, r.Projection, r.Records)
 }

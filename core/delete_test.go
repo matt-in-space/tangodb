@@ -218,8 +218,39 @@ func TestDatabaseRun_DeleteRejectsUnknownProjectionField(t *testing.T) {
 func TestDeleteResult_StringWithCountOnly(t *testing.T) {
 	r := DeleteResult{Count: 3}
 
-	if got := r.String(); got != "3 deleted" {
-		t.Fatalf("expected %q, got %q", "3 deleted", got)
+	if got := r.String(); got != "3" {
+		t.Fatalf("expected %q, got %q", "3", got)
+	}
+}
+
+func TestDatabaseRun_DeleteWithWildcardProjectionReturnsAllFields(t *testing.T) {
+	d := setupUserCollectionForDelete(t)
+
+	result, err := d.Run(DeleteOperation{
+		Collection: "user",
+		Filter:     map[string]any{"id": int64(1)},
+		Projection: []string{"*"},
+	})
+	if err != nil {
+		t.Fatalf("Failed to delete, err: %v", err)
+	}
+
+	deleteResult := result.(DeleteResult)
+
+	if len(deleteResult.Records) != 1 {
+		t.Fatalf("expected 1 returned record, got %d", len(deleteResult.Records))
+	}
+
+	want := map[string]bool{"id": true, "name": true}
+
+	if len(deleteResult.Projection) != len(want) {
+		t.Fatalf("expected %d projected fields, got %v", len(want), deleteResult.Projection)
+	}
+
+	for _, field := range deleteResult.Projection {
+		if !want[field] {
+			t.Fatalf("unexpected field %q in wildcard projection %v", field, deleteResult.Projection)
+		}
 	}
 }
 
