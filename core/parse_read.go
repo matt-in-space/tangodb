@@ -72,6 +72,9 @@ func (p *parser) parseFilter() (map[string]any, error) {
 
 	filter := map[string]any{}
 
+	p.inFilter = true
+	defer func() { p.inFilter = false }()
+
 	for p.peek().kind != tokenRParen {
 		fieldName, err := p.expectIdent()
 		if err != nil {
@@ -95,6 +98,10 @@ func (p *parser) parseFilter() (map[string]any, error) {
 	}
 
 	if err := p.expect(tokenRParen); err != nil {
+		return nil, err
+	}
+
+	if err := checkConstrainedOnce(filter); err != nil {
 		return nil, err
 	}
 

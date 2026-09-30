@@ -78,14 +78,42 @@ func (db *Database) read(collectionName string, filter map[string]any, projectio
 }
 
 func recordMatchesFilter(record Entity, filter map[string]any) bool {
-	// A field with no value is absent from the record, so record[field] is nil
-	// and matches a null filter value by plain equality.
-	for field, want := range filter {
-		if record[field] != want {
+	for key, want := range filter {
+		if !filterValueMatches(resolvePath(record, key), want) {
 			return false
 		}
 	}
 	return true
+}
+
+// filterValueMatches reports whether a record's value satisfies one filter
+// condition. A field with no value is absent from the record, so actual is
+// nil, and a null condition matches it by plain equality.
+func filterValueMatches(actual, want any) bool {
+	object, isObject := actual.(Entity)
+
+	switch want := want.(type) {
+	case wildcardObject:
+		// {*}: the object is present, whatever it contains.
+		return isObject
+
+	case Entity:
+		// A subset filter: the object is present, and each field the filter
+		// names matches. Fields it doesn't name are unconstrained.
+		if !isObject {
+			return false
+		}
+		for field, fieldWant := range want {
+			if !filterValueMatches(object[field], fieldWant) {
+				return false
+			}
+		}
+		return true
+	}
+
+	// A scalar or null condition. Never compare an object here: two maps
+	// can't be compared, and an object can't equal a scalar anyway.
+	return !isObject && actual == want
 }
 
 func (r ReadResult) String() string {

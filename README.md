@@ -334,12 +334,55 @@ Matt  MSP
 Sam   null
 ```
 
-**Not supported yet:** filtering on an embedded object, by the object or by a dotted path, and merge payloads that set an object field. Both are errors rather than wrong results:
+### Filtering on embedded objects
+
+There are two ways to filter on an embedded object, and they mean slightly different things:
+
+- A **dotted path**, `(address.city: "MSP")`, asks about one value. A path through an object that isn't there has no value, so `(address.zip: null)` matches records with no zip *for any reason*, including no address at all.
+- A **subset filter**, `(address: {city: "MSP"})`, describes the object: it matches when the address is **present** and every field you name matches. Fields you don't name don't matter. So `(address: {zip: null})` means "has an address, with no zip on it".
 
 ```
-tango> << user(address.city: "MSP");
-error: filtering on embedded object field "address" is not supported yet
+tango> user { id: int @id name: text address: { city: text zip: text @optional } @optional };
+user {
+  address: {
+    city: text
+    zip: text @optional
+  } @optional
+  id: int @id
+  name: text
+}
+tango> >> user {id: 1 name: "Matt" address: {city: "MSP" zip: "55401"}} & {id: 2 name: "Sam" address: {city: "MSP"}} & {id: 3 name: "Pat"};
+3
+tango> << user(address.city: "MSP") => {name};
+name
+Matt
+Sam
+tango> << user(address.zip: null) => {name};
+name
+Sam
+Pat
+tango> << user(address: {zip: null}) => {name};
+name
+Sam
 ```
+
+For the object as a whole, `(address: null)` matches records with no address, and `(address: {*})` matches records that have one, whatever it contains. An empty `{}` is an error, since it's ambiguous between "any address" and "an address with nothing in it":
+
+```
+tango> << user(address: null) => {name};
+name
+Pat
+tango> << user(address: {*}) => {name};
+name
+Matt
+Sam
+tango> << user(address: {});
+error: empty object filter for field "address"; use {*} to match any value
+```
+
+Filter values are checked against the schema at their full path (`field "address.city": expected text, got int`), and a field can only be constrained once: `(address.city: "A" address: {city: "B"})` is `field "address.city" is given more than once`. `{*}` only means something in a filter; in an insert record it's an error. All of this works the same in read, delete, and merge filters.
+
+**Not supported yet:** merge payloads that set an object field. That's an error rather than a silent replacement of the whole object.
 
 ## Querying records
 
@@ -497,4 +540,4 @@ id  name
 
 ## Status
 
-The REPL currently supports defining a collection, inserting records, including embedded objects, one at a time or in `&` batches (a count by default, or the stored records with `=>`), reading records back with a basic equality filter and projection (a `*` wildcard for every field, dotted columns for embedded objects, or omit the projection entirely for just a count), deleting records with a mandatory filter and the same count-vs-returning shape, and merging (bulk partial-updating) records the same way. Not yet supported: filtering on or merging into embedded objects, related collections (`@collection`), and pipeline stages like `order`/`limit` — see `QUERY_LANGUAGE.md` for the full target language.
+The REPL currently supports defining a collection, inserting records, including embedded objects, one at a time or in `&` batches (a count by default, or the stored records with `=>`), reading records back with an equality filter (including dotted paths and subset filters on embedded objects) and projection (a `*` wildcard for every field, dotted columns for embedded objects, or omit the projection entirely for just a count), deleting records with a mandatory filter and the same count-vs-returning shape, and merging (bulk partial-updating) records the same way. Not yet supported: merging into embedded objects, related collections (`@collection`), and pipeline stages like `order`/`limit` — see `QUERY_LANGUAGE.md` for the full target language.

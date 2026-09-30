@@ -157,6 +157,10 @@ func (p *parser) parseValue(path string) (any, error) {
 		return nil, fmt.Errorf("expected a value, got %q", p.peek().value)
 
 	case tokenLBrace:
+		if p.peekAt(1).kind == tokenStar {
+			return p.parseWildcardObject()
+		}
+
 		// A nested record literal: the value of an embedded block field.
 		record, err := p.parseRecordLiteral(path)
 		if err != nil {

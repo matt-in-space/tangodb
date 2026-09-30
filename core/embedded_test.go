@@ -265,23 +265,18 @@ func TestProjection_DeleteReturnsFlattenedColumns(t *testing.T) {
 	}
 }
 
-func TestEmbedded_FilteringOnObjectFieldIsNotSupportedYet(t *testing.T) {
+func TestEmbedded_FilteringOnObjectFieldsWorksInEveryStatement(t *testing.T) {
 	d := setupUserWithAddress(t)
 
-	want := `filtering on embedded object field "address" is not supported yet`
+	expectCount(t, d, `<< user(address: {city: "MSP"});`, "1")
+	expectCount(t, d, `<< user(address.city: "MSP");`, "1")
+	expectCount(t, d, `<< user(address.city: "STP");`, "0")
 
-	for _, statement := range []string{
-		`<< user(address: {city: "MSP"});`,
-		`<< user(address.city: "MSP");`,
-		`!> user(address.city: "MSP");`,
-		`~> user(address.city: "MSP") {id: 2};`,
-	} {
-		if got := runExpectingError(t, d, statement); got != want {
-			t.Fatalf("for %q expected error %q, got %q", statement, want, got)
-		}
+	if got := runStatements(t, d, `!> user(address: {street: "1 Main"});`).(DeleteResult).String(); got != "1" {
+		t.Fatalf("expected the delete to remove 1 record, got %s", got)
 	}
 
-	expectCount(t, d, `<< user;`, "1")
+	expectCount(t, d, `<< user;`, "0")
 }
 
 func TestEmbedded_FilteringOnUnknownDottedPathIsNotFound(t *testing.T) {
@@ -325,4 +320,20 @@ func TestEmbedded_MergeStillUpdatesScalarFieldsAlongsideObjects(t *testing.T) {
 	if got != want {
 		t.Fatalf("expected:\n%s\ngot:\n%s", want, got)
 	}
+}
+
+func TestEmbedded_MergeFilterOnObjectField(t *testing.T) {
+	d := NewDatabase("test")
+	runStatements(t, d,
+		`user { id: int @id name: text address: { city: text } };`,
+		`>> user {id: 1 name: "Matt" address: {city: "MSP"}} & {id: 2 name: "Sam" address: {city: "STP"}};`,
+	)
+
+	got := runStatements(t, d, `~> user(address.city: "MSP") {name: "Pat"};`).(MergeResult).String()
+	if got != "1" {
+		t.Fatalf("expected the merge to update 1 record, got %s", got)
+	}
+
+	expectCount(t, d, `<< user(name: "Pat" address: {city: "MSP"});`, "1")
+	expectCount(t, d, `<< user(name: "Sam");`, "1")
 }

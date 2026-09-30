@@ -16,6 +16,10 @@ var ErrIncompleteInput = errors.New("incomplete input")
 type parser struct {
 	tokens []token
 	pos    int
+
+	// inFilter is set while parsing a filter's values, the only place the
+	// {*} wildcard is allowed.
+	inFilter bool
 }
 
 func Parse(input string) (Operation, error) {

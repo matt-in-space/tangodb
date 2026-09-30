@@ -3,7 +3,6 @@ package core
 import (
 	"fmt"
 	"sort"
-	"strings"
 )
 
 // validateValue reports whether value's runtime type matches dataType exactly.
@@ -43,21 +42,6 @@ func validateFields(collection *Collection, fields map[string]any) error {
 	}
 
 	return nil
-}
-
-// validateFilter checks a read, delete, or merge filter. Filtering on an
-// embedded object, whether by the object itself or a dotted path into it,
-// isn't supported yet, so it's rejected before any comparison is made (two
-// objects can't be compared for equality directly).
-func validateFilter(collection *Collection, filter map[string]any) error {
-	for _, key := range sortedKeys(filter) {
-		top, _, _ := strings.Cut(key, ".")
-		if collection.data[top] == TypeObject {
-			return fmt.Errorf("filtering on embedded object field %q is not supported yet", top)
-		}
-	}
-
-	return validateFields(collection, filter)
 }
 
 // validatePayload checks a merge payload. Setting an embedded object isn't
