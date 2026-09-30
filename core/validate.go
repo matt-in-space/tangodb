@@ -44,19 +44,6 @@ func validateFields(collection *Collection, fields map[string]any) error {
 	return nil
 }
 
-// validatePayload checks a merge payload. Setting an embedded object isn't
-// supported yet: without deep merge, it would silently replace the whole
-// object.
-func validatePayload(collection *Collection, payload map[string]any) error {
-	for _, key := range sortedKeys(payload) {
-		if collection.data[key] == TypeObject {
-			return fmt.Errorf("merge payload cannot set embedded object field %q yet", key)
-		}
-	}
-
-	return validateFields(collection, payload)
-}
-
 // valueProblems checks the value of one field of a block against the block's
 // schema, and returns every problem found. path is the block's dotted prefix
 // ("" at the top level, "address." inside), so each problem names the field's

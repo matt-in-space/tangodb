@@ -97,11 +97,10 @@ func TestLex_TrailingDotIsNotPartOfAName(t *testing.T) {
 
 func TestParse_RejectsDottedNamesWhereNamesAreDeclaredOrWritten(t *testing.T) {
 	cases := map[string]string{
-		`user { address.city: text };`:     `field name "address.city" cannot contain "."`,
-		`user.x { id: int };`:              `collection name "user.x" cannot contain "."`,
-		`>> user {address.city: "MSP"};`:   `field name "address.city" cannot contain "."`,
-		`~> user() {address.city: "MSP"};`: `field name "address.city" cannot contain "."`,
-		`<< user.address;`:                 `collection name "user.address" cannot contain "."`,
+		`user { address.city: text };`:   `field name "address.city" cannot contain "."`,
+		`user.x { id: int };`:            `collection name "user.x" cannot contain "."`,
+		`>> user {address.city: "MSP"};`: `field name "address.city" cannot contain "."`,
+		`<< user.address;`:               `collection name "user.address" cannot contain "."`,
 	}
 
 	for input, want := range cases {

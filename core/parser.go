@@ -20,6 +20,10 @@ type parser struct {
 	// inFilter is set while parsing a filter's values, the only place the
 	// {*} wildcard is allowed.
 	inFilter bool
+
+	// inPayload is set while parsing a merge payload, where record keys may
+	// be dotted paths for deep updates.
+	inPayload bool
 }
 
 func Parse(input string) (Operation, error) {

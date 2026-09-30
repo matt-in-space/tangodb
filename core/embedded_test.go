@@ -290,19 +290,14 @@ func TestEmbedded_FilteringOnUnknownDottedPathIsNotFound(t *testing.T) {
 	}
 }
 
-func TestEmbedded_MergePayloadCannotSetObjectYet(t *testing.T) {
+func TestEmbedded_MergePayloadCanSetObject(t *testing.T) {
 	d := setupUserWithAddress(t)
 
-	got := runExpectingError(t, d, `~> user(id: 1) {address: {street: "2 Oak" city: "STP"}};`)
-
-	want := `merge payload cannot set embedded object field "address" yet`
-	if got != want {
-		t.Fatalf("expected error %q, got %q", want, got)
-	}
+	runStatements(t, d, `~> user(id: 1) {address: {street: "2 Oak" city: "STP"}};`)
 
 	address := d.collections["user"].records[0]["address"].(Entity)
-	if address["city"] != "MSP" {
-		t.Fatalf("expected the record to be unchanged, got %v", address)
+	if address["street"] != "2 Oak" || address["city"] != "STP" {
+		t.Fatalf("expected the address to be updated, got %v", address)
 	}
 }
 

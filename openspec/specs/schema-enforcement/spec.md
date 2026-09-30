@@ -65,6 +65,10 @@ The system SHALL validate an entire statement before making any change. If any f
 - **WHEN** collection `user { id: int @id name: text }` exists and a client sends `>> user {id: 1 name: "Matt"} & {id: 2 name: 7};`
 - **THEN** the system returns an error and a subsequent `<< user;` returns `0`
 
+#### Scenario: One invalid merge result changes nothing
+- **WHEN** collection `user { id: int @id name: text address: { street: text city: text } @optional }` holds `{id: 1 name: "A" address: {street: "1 Main" city: "MSP"}}` and `{id: 2 name: "B"}` and a client sends `~> user() {name: "Z" address.city: "STP"};`
+- **THEN** the system returns an error for the record with `id` 2, and neither record's `name` or `address` has changed
+
 ### Requirement: Required fields must have a value
 Every declared field not marked `@optional` is required. The system SHALL reject an insert whose record omits a required field, or sets it to `null`, naming the field. A primary key that is `@auto` is exempt from supplying a value, because the database assigns it. Merge SHALL NOT require fields it doesn't name, since it is a partial update, but SHALL reject `null` for a required field.
 

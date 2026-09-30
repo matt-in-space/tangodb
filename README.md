@@ -382,7 +382,34 @@ error: empty object filter for field "address"; use {*} to match any value
 
 Filter values are checked against the schema at their full path (`field "address.city": expected text, got int`), and a field can only be constrained once: `(address.city: "A" address: {city: "B"})` is `field "address.city" is given more than once`. `{*}` only means something in a filter; in an insert record it's an error. All of this works the same in read, delete, and merge filters.
 
-**Not supported yet:** merge payloads that set an object field. That's an error rather than a silent replacement of the whole object.
+### Merging into embedded objects
+
+A merge into an embedded object is a **deep merge**: it updates the fields you give, at any depth, and leaves every other field alone — the same "partial update" rule merge follows at the top level. You can write the update as a nested object or as a dotted path; they mean the same thing. To remove a value, set it to `null`:
+
+```
+tango> ~> user(id: 1) {address: {city: "STP"}} => {*};
+address.city  address.street  address.zip  id  name
+STP           1 Main          55401        1   Matt
+tango> ~> user(id: 1) {address.zip: null} => {*};
+address.city  address.street  address.zip  id  name
+STP           1 Main          null         1   Matt
+```
+
+`{address: null}` clears a whole optional object, and merging into a record that has no address creates one. A payload can't set the same field twice, or clear an object while also setting something inside it:
+
+```
+tango> ~> user(id: 1) {address: null address.city: "X"};
+error: field "address.city" conflicts with "address"
+```
+
+Because a merge can land differently on each record — creating an address on one, updating it on another — the database works out every matched record's result first and checks each against the schema. If any result would be invalid, nothing changes, and each problem names its record:
+
+```
+tango> ~> user() {address.city: "MPLS"};
+error: record with id 2: field "address.street" is required for collection "user"
+```
+
+(Record 2 had no address, so the merge would have created one with only a `city`.) For a collection with no primary key, records are named by position instead: `matched record 2: ...`. Dotted keys are a merge thing only — an insert writes a whole record, so it still takes nested literals.
 
 ## Querying records
 
@@ -540,4 +567,4 @@ id  name
 
 ## Status
 
-The REPL currently supports defining a collection, inserting records, including embedded objects, one at a time or in `&` batches (a count by default, or the stored records with `=>`), reading records back with an equality filter (including dotted paths and subset filters on embedded objects) and projection (a `*` wildcard for every field, dotted columns for embedded objects, or omit the projection entirely for just a count), deleting records with a mandatory filter and the same count-vs-returning shape, and merging (bulk partial-updating) records the same way. Not yet supported: merging into embedded objects, related collections (`@collection`), and pipeline stages like `order`/`limit` — see `QUERY_LANGUAGE.md` for the full target language.
+The REPL currently supports defining a collection, inserting records, including embedded objects, one at a time or in `&` batches (a count by default, or the stored records with `=>`), reading records back with an equality filter (including dotted paths and subset filters on embedded objects) and projection (a `*` wildcard for every field, dotted columns for embedded objects, or omit the projection entirely for just a count), deleting records with a mandatory filter and the same count-vs-returning shape, and merging (bulk partial-updating) records the same way, including deep merges into embedded objects. Not yet supported: related collections (`@collection`), and pipeline stages like `order`/`limit` — see `QUERY_LANGUAGE.md` for the full target language.

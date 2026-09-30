@@ -90,7 +90,14 @@ func (p *parser) parseRecordLiteral(path string) (Entity, error) {
 	record := Entity{}
 
 	for p.peek().kind != tokenRBrace {
-		fieldName, err := p.expectPlainName("field")
+		var fieldName string
+		var err error
+		if p.inPayload {
+			// A merge payload may use dotted keys for deep updates.
+			fieldName, err = p.expectIdent()
+		} else {
+			fieldName, err = p.expectPlainName("field")
+		}
 		if err != nil {
 			return nil, err
 		}
