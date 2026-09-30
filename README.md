@@ -227,6 +227,15 @@ Commas between fields are optional — here and everywhere else a list appears (
 
 A comma inside a quoted string is part of the value, not a separator (`"Smith, Matt"`).
 
+A field can only be given once — in a record, a filter, or a schema block. A repeat is an error rather than silently keeping one of the values:
+
+```
+tango> >> user {id: 1 name: "A" name: "B"};
+error: field "name" is given more than once
+tango> user2 { id: int id: text };
+error: field "id" is declared more than once
+```
+
 Inserting into a collection with a declared `@id` field enforces it: the record must include that field, and a duplicate value is rejected rather than overwritten:
 
 ```

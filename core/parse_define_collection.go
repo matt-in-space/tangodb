@@ -81,6 +81,10 @@ func (p *parser) parseFieldBlock(path string) (fieldBlock, error) {
 		}
 		fullName := path + fieldName
 
+		if _, repeated := block.schema.Data[fieldName]; repeated {
+			return fieldBlock{}, fmt.Errorf("field %q is declared more than once", fullName)
+		}
+
 		if err := p.expect(tokenColon); err != nil {
 			return fieldBlock{}, err
 		}

@@ -32,7 +32,7 @@ func (p *parser) parseInsert() (Operation, error) {
 		return nil, err
 	}
 
-	record, err := p.parseRecordLiteral()
+	record, err := p.parseRecordLiteral("")
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func (p *parser) parseInsert() (Operation, error) {
 	for p.peek().kind == tokenAmp {
 		p.next()
 
-		record, err := p.parseRecordLiteral()
+		record, err := p.parseRecordLiteral("")
 		if err != nil {
 			return nil, err
 		}
@@ -79,7 +79,10 @@ func (p *parser) parseInsert() (Operation, error) {
 	}, nil
 }
 
-func (p *parser) parseRecordLiteral() (Entity, error) {
+// parseRecordLiteral parses a `{ field: value ... }` record. path is its
+// dotted prefix ("" for a top-level record, "address." for the record inside
+// address), used to name fields in errors.
+func (p *parser) parseRecordLiteral(path string) (Entity, error) {
 	if err := p.expect(tokenLBrace); err != nil {
 		return nil, err
 	}
@@ -92,11 +95,15 @@ func (p *parser) parseRecordLiteral() (Entity, error) {
 			return nil, err
 		}
 
+		if _, repeated := record[fieldName]; repeated {
+			return nil, fmt.Errorf("field %q is given more than once", path+fieldName)
+		}
+
 		if err := p.expect(tokenColon); err != nil {
 			return nil, err
 		}
 
-		value, err := p.parseValue()
+		value, err := p.parseValue(path + fieldName + ".")
 		if err != nil {
 			return nil, err
 		}
@@ -111,7 +118,9 @@ func (p *parser) parseRecordLiteral() (Entity, error) {
 	return record, nil
 }
 
-func (p *parser) parseValue() (any, error) {
+// parseValue parses a value. path is the dotted prefix a nested record
+// literal would have, for naming its fields in errors.
+func (p *parser) parseValue(path string) (any, error) {
 	switch p.peek().kind {
 	case tokenString:
 		return p.next().value, nil
@@ -149,7 +158,7 @@ func (p *parser) parseValue() (any, error) {
 
 	case tokenLBrace:
 		// A nested record literal: the value of an embedded block field.
-		record, err := p.parseRecordLiteral()
+		record, err := p.parseRecordLiteral(path)
 		if err != nil {
 			return nil, err
 		}

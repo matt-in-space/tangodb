@@ -43,7 +43,7 @@ func (p *parser) parseMerge() (Operation, error) {
 
 	// The payload is mandatory too — parseRecordLiteral's own expect(LBrace)
 	// produces a hard error if something else (like '=>') appears in its place.
-	payload, err := p.parseRecordLiteral()
+	payload, err := p.parseRecordLiteral("")
 	if err != nil {
 		return nil, err
 	}

@@ -1,5 +1,7 @@
 package core
 
+import "fmt"
+
 func ParseRead(input string) (ReadOperation, error) {
 	tokens, err := lexStatement(input)
 	if err != nil {
@@ -76,11 +78,15 @@ func (p *parser) parseFilter() (map[string]any, error) {
 			return nil, err
 		}
 
+		if _, repeated := filter[fieldName]; repeated {
+			return nil, fmt.Errorf("field %q is given more than once", fieldName)
+		}
+
 		if err := p.expect(tokenColon); err != nil {
 			return nil, err
 		}
 
-		value, err := p.parseValue()
+		value, err := p.parseValue(fieldName + ".")
 		if err != nil {
 			return nil, err
 		}
