@@ -3,7 +3,7 @@ package core
 import "fmt"
 
 func ParseDelete(input string) (DeleteOperation, error) {
-	tokens, err := lex(input)
+	tokens, err := lexStatement(input)
 	if err != nil {
 		return DeleteOperation{}, err
 	}
@@ -29,15 +29,9 @@ func (p *parser) parseDelete() (Operation, error) {
 	}
 
 	// Unlike read, the filter parens are mandatory here — even empty
-	// ones. EOF means more input could still supply them, so we keep
-	// waiting; anything else in their place is a hard error, since
-	// skipping the filter position entirely (not just leaving it empty)
-	// is exactly the "forgot the WHERE clause" mistake this guards
-	// against.
-	if p.peek().kind == tokenEOF {
-		return nil, ErrIncompleteInput
-	}
-
+	// ones. Skipping the filter position entirely (not just leaving it
+	// empty) is exactly the "forgot the WHERE clause" mistake this guards
+	// against, so it's a hard error.
 	if p.peek().kind != tokenLParen {
 		return nil, fmt.Errorf("delete requires an explicit filter, e.g. !> %s() to match everything", collectionName)
 	}
@@ -66,9 +60,6 @@ func (p *parser) parseDelete() (Operation, error) {
 		if projection == nil {
 			projection = []string{}
 		}
-
-	case tokenEOF:
-		return nil, ErrIncompleteInput
 	}
 
 	if err := p.expectEndOfStatement(); err != nil {

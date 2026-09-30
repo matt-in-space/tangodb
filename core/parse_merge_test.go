@@ -79,19 +79,19 @@ func TestParseMerge_RejectsMissingFilterParens(t *testing.T) {
 
 func TestParseMerge_MissingPayloadIsIncomplete(t *testing.T) {
 	if _, err := ParseMerge(`~> user(id: 1)`); !errors.Is(err, ErrIncompleteInput) {
-		t.Fatalf("expected ErrIncompleteInput for a filter with no payload yet, got %v", err)
+		t.Fatalf("expected ErrIncompleteInput for a merge with no payload or ';' yet, got %v", err)
 	}
 }
 
 func TestParseMerge_RejectsArrowInPlaceOfPayload(t *testing.T) {
-	if _, err := ParseMerge(`~> user(id: 1) => {id}`); err == nil {
+	if _, err := ParseMerge(`~> user(id: 1) => {id};`); err == nil {
 		t.Fatal("expected an error for skipping straight to '=>' without a payload")
 	}
 }
 
 func TestParseMerge_BareCollectionNameIsIncomplete(t *testing.T) {
 	if _, err := ParseMerge(`~> user`); !errors.Is(err, ErrIncompleteInput) {
-		t.Fatalf("expected ErrIncompleteInput for a collection name with nothing after it yet, got %v", err)
+		t.Fatalf("expected ErrIncompleteInput for a collection name with no filter or ';' yet, got %v", err)
 	}
 }
 

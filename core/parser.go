@@ -19,25 +19,14 @@ type parser struct {
 }
 
 func Parse(input string) (Operation, error) {
-	tokens, err := lex(input)
+	tokens, err := lexStatement(input)
 	if err != nil {
 		return nil, err
-	}
-
-	// A statement with an unclosed '{' or '(' isn't finished yet, so it isn't
-	// parsed at all: a mistake partway through a multi-line statement is then
-	// reported once, when the statement is complete, instead of the leftover
-	// lines being read as new statements.
-	if hasUnclosedBrackets(tokens) {
-		return nil, ErrIncompleteInput
 	}
 
 	p := &parser{tokens: tokens}
 
 	switch {
-	case p.peek().kind == tokenEOF:
-		return nil, ErrIncompleteInput
-
 	case p.peek().kind == tokenInsertOp:
 		return p.parseInsert()
 
@@ -52,9 +41,6 @@ func Parse(input string) (Operation, error) {
 
 	case p.peek().kind == tokenIdent && p.peekAt(1).kind == tokenLBrace:
 		return p.parseDefineCollection()
-
-	case p.peek().kind == tokenIdent && p.peekAt(1).kind == tokenEOF:
-		return nil, ErrIncompleteInput
 
 	default:
 		return nil, fmt.Errorf("unrecognized statement")
@@ -106,9 +92,16 @@ func (p *parser) expectIdent() (string, error) {
 // but some statements (like a bare read with no filter or projection)
 // use it as an explicit "no more is coming" marker to resolve what would
 // otherwise look like an incomplete statement.
+// expectEndOfStatement requires the ';' that ends every statement, and then
+// the end of input: one statement is accepted at a time.
 func (p *parser) expectEndOfStatement() error {
-	if p.peek().kind == tokenSemicolon {
+	switch p.peek().kind {
+	case tokenEOF:
+		return ErrIncompleteInput
+	case tokenSemicolon:
 		p.next()
+	default:
+		return fmt.Errorf("unexpected input after statement: %q", p.peek().value)
 	}
 
 	if p.peek().kind != tokenEOF {
@@ -118,25 +111,58 @@ func (p *parser) expectEndOfStatement() error {
 	return nil
 }
 
-// hasUnclosedBrackets reports whether tokens open more '{'/'(' than they close.
-// If a closing bracket ever outnumbers its openers, more input can't fix the
-// statement, so it counts as closed and the parser reports the error.
-func hasUnclosedBrackets(tokens []token) bool {
+// lexStatement lexes one statement and checks that it's complete. Every
+// statement ends with ';', and until the first ';' outside any brackets
+// arrives, the statement isn't finished, so it isn't parsed at all: a mistake
+// partway through a multi-line statement is then reported once, when the
+// statement is complete. Only one statement is accepted at a time. Because
+// of this check, the parsers never reach the end of input mid-statement.
+func lexStatement(input string) ([]token, error) {
+	tokens, err := lex(input)
+	if err != nil {
+		return nil, err
+	}
+
+	end, found, unmatched := findStatementEnd(tokens)
+	if unmatched {
+		// Parse it anyway, so the stray bracket is reported right away.
+		return tokens, nil
+	}
+	if !found {
+		return nil, ErrIncompleteInput
+	}
+	if next := tokens[end+1]; next.kind != tokenEOF {
+		return nil, fmt.Errorf("unexpected input after statement: %q", next.value)
+	}
+
+	return tokens, nil
+}
+
+// findStatementEnd returns the index of the first ';' outside any brackets,
+// which is where a statement ends. A ';' inside a string is part of the
+// string token, so it never counts. unmatched reports a closing bracket with
+// no opener: more input can't fix that, so the caller parses right away and
+// the parser reports the error.
+func findStatementEnd(tokens []token) (end int, found bool, unmatched bool) {
 	depth := 0
 
-	for _, t := range tokens {
+	for i, t := range tokens {
 		switch t.kind {
 		case tokenLBrace, tokenLParen:
 			depth++
 		case tokenRBrace, tokenRParen:
 			depth--
 			if depth < 0 {
-				return false
+				return 0, false, true
+			}
+		case tokenSemicolon:
+			if depth == 0 {
+				return i, true, false
 			}
 		}
 	}
 
-	return depth > 0
+	return 0, false, false
 }
 
 // expectPlainName reads a name being declared or written, a collection name

@@ -7,7 +7,7 @@ import (
 
 func TestBatch_ReturnsCount(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text }`)
+	runStatements(t, d, `user { id: int @id name: text };`)
 
 	got := runStatements(t, d, `>> user {id: 1 name: "Matt"} & {id: 2 name: "Sam"};`).(InsertResult).String()
 	if got != "2" {
@@ -19,7 +19,7 @@ func TestBatch_ReturnsCount(t *testing.T) {
 
 func TestBatch_SpreadOverLines(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text }`)
+	runStatements(t, d, `user { id: int @id name: text };`)
 
 	if _, err := Parse(">> user {id: 1 name: \"Matt\"} &\n"); err != ErrIncompleteInput {
 		t.Fatalf("expected the first line to be incomplete, got %v", err)
@@ -32,7 +32,7 @@ func TestBatch_SpreadOverLines(t *testing.T) {
 func TestBatch_RecordsMayDifferInOptionalFields(t *testing.T) {
 	d := NewDatabase("test")
 	runStatements(t, d,
-		`user { id: int @id name: text nickname: text @optional }`,
+		`user { id: int @id name: text nickname: text @optional };`,
 		`>> user {id: 1 name: "Matt" nickname: "M"} & {id: 2 name: "Sam"};`,
 	)
 
@@ -41,7 +41,7 @@ func TestBatch_RecordsMayDifferInOptionalFields(t *testing.T) {
 
 func TestBatch_OneBadRecordStoresNothing(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text }`)
+	runStatements(t, d, `user { id: int @id name: text };`)
 
 	got := runExpectingError(t, d, `>> user {id: 1 name: "Matt"} & {id: 2};`)
 
@@ -55,7 +55,7 @@ func TestBatch_OneBadRecordStoresNothing(t *testing.T) {
 
 func TestBatch_OneBadValueFailsTheWholeBatch(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text }`)
+	runStatements(t, d, `user { id: int @id name: text };`)
 
 	runExpectingError(t, d, `>> user {id: 1 name: "Matt"} & {id: 2 name: 7};`)
 
@@ -64,7 +64,7 @@ func TestBatch_OneBadValueFailsTheWholeBatch(t *testing.T) {
 
 func TestBatch_DuplicateKeyWithinBatch(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text }`)
+	runStatements(t, d, `user { id: int @id name: text };`)
 
 	got := runExpectingError(t, d, `>> user {id: 1 name: "Matt"} & {id: 1 name: "Sam"};`)
 
@@ -78,7 +78,7 @@ func TestBatch_DuplicateKeyWithinBatch(t *testing.T) {
 
 func TestBatch_DuplicateOfStoredKey(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text }`, `>> user {id: 1 name: "Matt"};`)
+	runStatements(t, d, `user { id: int @id name: text };`, `>> user {id: 1 name: "Matt"};`)
 
 	got := runExpectingError(t, d, `>> user {id: 2 name: "Sam"} & {id: 1 name: "Pat"};`)
 
@@ -92,9 +92,9 @@ func TestBatch_DuplicateOfStoredKey(t *testing.T) {
 
 func TestBatch_AutoValuesFollowInputOrder(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id @auto name: text }`)
+	runStatements(t, d, `user { id: int @id @auto name: text };`)
 
-	got := runStatements(t, d, `>> user {name: "Matt"} & {name: "Sam"} => {id name}`).(InsertResult).String()
+	got := runStatements(t, d, `>> user {name: "Matt"} & {name: "Sam"} => {id name};`).(InsertResult).String()
 
 	want := "id  name\n1   Matt\n2   Sam"
 	if got != want {
@@ -104,11 +104,11 @@ func TestBatch_AutoValuesFollowInputOrder(t *testing.T) {
 
 func TestBatch_FailedBatchConsumesNoAutoValues(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id @auto name: text }`)
+	runStatements(t, d, `user { id: int @id @auto name: text };`)
 
 	runExpectingError(t, d, `>> user {name: "Matt"} & {name: 5};`)
 
-	got := runStatements(t, d, `>> user {name: "Sam"} => {id}`).(InsertResult).String()
+	got := runStatements(t, d, `>> user {name: "Sam"} => {id};`).(InsertResult).String()
 	if got != "id\n1" {
 		t.Fatalf("expected id 1, got:\n%s", got)
 	}
@@ -116,9 +116,9 @@ func TestBatch_FailedBatchConsumesNoAutoValues(t *testing.T) {
 
 func TestBatch_ProjectionReturnsEveryRecordInOrder(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text }`)
+	runStatements(t, d, `user { id: int @id name: text };`)
 
-	got := runStatements(t, d, `>> user {id: 1 name: "Matt"} & {id: 2 name: "Sam"} => {id}`).(InsertResult).String()
+	got := runStatements(t, d, `>> user {id: 1 name: "Matt"} & {id: 2 name: "Sam"} => {id};`).(InsertResult).String()
 
 	want := "id\n1\n2"
 	if got != want {
@@ -128,7 +128,7 @@ func TestBatch_ProjectionReturnsEveryRecordInOrder(t *testing.T) {
 
 func TestBatch_ReportsEveryProblemAcrossRecords(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text age: int @optional }`)
+	runStatements(t, d, `user { id: int @id name: text age: int @optional };`)
 
 	got := runExpectingError(t, d, `>> user {id: 1 name: "Matt"} & {id: 2} & {id: 1 name: "Sam" age: "x"};`)
 
@@ -145,7 +145,7 @@ func TestBatch_ReportsEveryProblemAcrossRecords(t *testing.T) {
 
 func TestBatch_SingleInsertReportsEveryProblemWithoutPrefix(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text age: int }`)
+	runStatements(t, d, `user { id: int @id name: text age: int };`)
 
 	got := runExpectingError(t, d, `>> user {id: 1 name: 5 age: "x"};`)
 
@@ -163,7 +163,7 @@ func TestBatch_SingleInsertReportsEveryProblemWithoutPrefix(t *testing.T) {
 
 func TestBatch_OneProblemPerField(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id @auto }`)
+	runStatements(t, d, `user { id: int @id @auto };`)
 
 	got := runExpectingError(t, d, `>> user {id: null};`)
 

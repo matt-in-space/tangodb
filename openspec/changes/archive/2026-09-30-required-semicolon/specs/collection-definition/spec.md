@@ -1,8 +1,4 @@
-## Purpose
-
-Defines how a collection's fields are declared, including the annotations that change how a field behaves (`@id`, `@auto`, `@optional`) and which combinations are allowed.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Fields are required unless marked optional
 Every field in a collection declaration SHALL be required by default. The `@optional` annotation SHALL mark a field that may have no value. Declaring `@optional` twice on the same field SHALL be an error. A collection's schema output SHALL show `@optional` on the fields that have it.

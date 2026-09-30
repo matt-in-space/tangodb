@@ -1,13 +1,16 @@
 package core
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestParseDefineCollection_ParsesFieldsAndPrimaryKey(t *testing.T) {
 	input := `
 	user {
 	  id: int @id
 	  name: text
-	}
+	};
 	`
 
 	o, err := ParseDefineCollection(input)
@@ -40,7 +43,7 @@ func TestParseDefineCollection_ParsesFieldsAndPrimaryKey(t *testing.T) {
 }
 
 func TestParseDefineCollection_AllowsNoPrimaryKey(t *testing.T) {
-	o, err := ParseDefineCollection(`user { name: text }`)
+	o, err := ParseDefineCollection(`user { name: text };`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -51,7 +54,7 @@ func TestParseDefineCollection_AllowsNoPrimaryKey(t *testing.T) {
 }
 
 func TestParseDefineCollection_AllowsEmptyCollection(t *testing.T) {
-	o, err := ParseDefineCollection(`user {}`)
+	o, err := ParseDefineCollection(`user {};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -62,7 +65,7 @@ func TestParseDefineCollection_AllowsEmptyCollection(t *testing.T) {
 }
 
 func TestParseDefineCollection_IsCaseInsensitiveAboutTypes(t *testing.T) {
-	o, err := ParseDefineCollection(`user { age: INT }`)
+	o, err := ParseDefineCollection(`user { age: INT };`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -73,25 +76,25 @@ func TestParseDefineCollection_IsCaseInsensitiveAboutTypes(t *testing.T) {
 }
 
 func TestParseDefineCollection_RejectsUnknownType(t *testing.T) {
-	if _, err := ParseDefineCollection(`user { age: number }`); err == nil {
+	if _, err := ParseDefineCollection(`user { age: number };`); err == nil {
 		t.Fatal("expected an error for an unknown type")
 	}
 }
 
 func TestParseDefineCollection_RejectsUnknownAnnotation(t *testing.T) {
-	if _, err := ParseDefineCollection(`user { id: int @unique }`); err == nil {
+	if _, err := ParseDefineCollection(`user { id: int @unique };`); err == nil {
 		t.Fatal("expected an error for an unknown annotation")
 	}
 }
 
 func TestParseDefineCollection_RejectsMultiplePrimaryKeys(t *testing.T) {
-	if _, err := ParseDefineCollection(`user { id: int @id name: text @id }`); err == nil {
+	if _, err := ParseDefineCollection(`user { id: int @id name: text @id };`); err == nil {
 		t.Fatal("expected an error for multiple @id fields")
 	}
 }
 
 func TestParseDefineCollection_ParsesAutoIncrement(t *testing.T) {
-	o, err := ParseDefineCollection(`user { id: int @id @auto }`)
+	o, err := ParseDefineCollection(`user { id: int @id @auto };`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -106,7 +109,7 @@ func TestParseDefineCollection_ParsesAutoIncrement(t *testing.T) {
 }
 
 func TestParseDefineCollection_AllowsAutoBeforeID(t *testing.T) {
-	o, err := ParseDefineCollection(`user { id: int @auto @id }`)
+	o, err := ParseDefineCollection(`user { id: int @auto @id };`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -117,7 +120,7 @@ func TestParseDefineCollection_AllowsAutoBeforeID(t *testing.T) {
 }
 
 func TestParseDefineCollection_AllowsAutoWithoutID(t *testing.T) {
-	o, err := ParseDefineCollection(`ticket { code: text @id number: int @auto }`)
+	o, err := ParseDefineCollection(`ticket { code: text @id number: int @auto };`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -132,7 +135,7 @@ func TestParseDefineCollection_AllowsAutoWithoutID(t *testing.T) {
 }
 
 func TestParseDefineCollection_AllowsMultipleAutoFields(t *testing.T) {
-	o, err := ParseDefineCollection(`event { id: int @id @auto seq: int @auto }`)
+	o, err := ParseDefineCollection(`event { id: int @id @auto seq: int @auto };`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -144,8 +147,8 @@ func TestParseDefineCollection_AllowsMultipleAutoFields(t *testing.T) {
 
 func TestParseDefineCollection_RejectsOptionalAuto(t *testing.T) {
 	for _, input := range []string{
-		`ticket { number: int @auto @optional }`,
-		`ticket { number: int @optional @auto }`,
+		`ticket { number: int @auto @optional };`,
+		`ticket { number: int @optional @auto };`,
 	} {
 		_, err := ParseDefineCollection(input)
 		if err == nil {
@@ -160,25 +163,25 @@ func TestParseDefineCollection_RejectsOptionalAuto(t *testing.T) {
 }
 
 func TestParseDefineCollection_RejectsAutoOnNonIntField(t *testing.T) {
-	if _, err := ParseDefineCollection(`user { id: text @id @auto }`); err == nil {
+	if _, err := ParseDefineCollection(`user { id: text @id @auto };`); err == nil {
 		t.Fatal("expected an error for @auto on a non-int field")
 	}
 }
 
 func TestParseDefineCollection_RejectsDuplicateAuto(t *testing.T) {
-	if _, err := ParseDefineCollection(`user { id: int @id @auto @auto }`); err == nil {
+	if _, err := ParseDefineCollection(`user { id: int @id @auto @auto };`); err == nil {
 		t.Fatal("expected an error for a duplicate @auto annotation")
 	}
 }
 
 func TestParseDefineCollection_RejectsMissingClosingBrace(t *testing.T) {
-	if _, err := ParseDefineCollection(`user { id: int`); err == nil {
+	if _, err := ParseDefineCollection(`user { id: int`); !errors.Is(err, ErrIncompleteInput) {
 		t.Fatal("expected an error for a missing closing brace")
 	}
 }
 
 func TestParseDefineCollection_AllowsCommasBetweenFields(t *testing.T) {
-	o, err := ParseDefineCollection(`user { id: int @id, name: text }`)
+	o, err := ParseDefineCollection(`user { id: int @id, name: text };`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -204,7 +207,7 @@ func TestParseDefineCollection_ToleratesTrailingSemicolon(t *testing.T) {
 }
 
 func TestParseDefineCollection_RejectsTrailingInput(t *testing.T) {
-	if _, err := ParseDefineCollection(`user { id: int } extra`); err == nil {
+	if _, err := ParseDefineCollection(`user { id: int }; extra`); err == nil || err.Error() != `unexpected input after statement: "extra"` {
 		t.Fatal("expected an error for unexpected trailing input")
 	}
 }
@@ -214,7 +217,7 @@ func TestParseDefineCollection_EndToEndThroughDatabase(t *testing.T) {
 	user {
 	  id: int @id
 	  name: text
-	}
+	};
 	`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
@@ -238,7 +241,7 @@ func TestParseDefineCollection_EndToEndThroughDatabase(t *testing.T) {
 }
 
 func TestParseDefineCollection_ParsesOptional(t *testing.T) {
-	o, err := ParseDefineCollection(`user { id: int @id nickname: text @optional }`)
+	o, err := ParseDefineCollection(`user { id: int @id nickname: text @optional };`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -253,16 +256,16 @@ func TestParseDefineCollection_ParsesOptional(t *testing.T) {
 }
 
 func TestParseDefineCollection_RejectsDuplicateOptional(t *testing.T) {
-	if _, err := ParseDefineCollection(`user { nickname: text @optional @optional }`); err == nil {
+	if _, err := ParseDefineCollection(`user { nickname: text @optional @optional };`); err == nil {
 		t.Fatal("expected an error for a duplicate @optional annotation")
 	}
 }
 
 func TestParseDefineCollection_RejectsOptionalID(t *testing.T) {
 	for _, input := range []string{
-		`user { id: int @id @optional }`,
-		`user { id: int @optional @id }`,
-		`user { id: int @id @auto @optional }`,
+		`user { id: int @id @optional };`,
+		`user { id: int @optional @id };`,
+		`user { id: int @id @auto @optional };`,
 	} {
 		_, err := ParseDefineCollection(input)
 		if err == nil {
@@ -277,7 +280,7 @@ func TestParseDefineCollection_RejectsOptionalID(t *testing.T) {
 }
 
 func TestParseDefineCollection_ParsesEmbeddedBlock(t *testing.T) {
-	o, err := ParseDefineCollection(`user { id: int @id address: { street: text city: text } }`)
+	o, err := ParseDefineCollection(`user { id: int @id address: { street: text city: text } };`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -293,7 +296,7 @@ func TestParseDefineCollection_ParsesEmbeddedBlock(t *testing.T) {
 }
 
 func TestParseDefineCollection_ParsesNestedBlocksAndOptional(t *testing.T) {
-	o, err := ParseDefineCollection(`user { id: int @id address: { city: text geo: { lat: float lng: float } @optional } @optional }`)
+	o, err := ParseDefineCollection(`user { id: int @id address: { city: text geo: { lat: float lng: float } @optional } @optional };`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -310,11 +313,11 @@ func TestParseDefineCollection_ParsesNestedBlocksAndOptional(t *testing.T) {
 
 func TestParseDefineCollection_RejectsIdentityInsideBlock(t *testing.T) {
 	cases := map[string]string{
-		`user { id: int @id address: { id: int @id } }`:                    `@id is not allowed inside an embedded block (field "address.id")`,
-		`user { id: int @id address: { n: int @auto } }`:                   `@auto is not allowed inside an embedded block (field "address.n")`,
-		`user { id: int @id a: { b: { c: int @id } } }`:                    `@id is not allowed inside an embedded block (field "a.b.c")`,
-		`user { id: int @id address: { city: text } @id }`:                 `only @optional is allowed on an embedded block (field "address")`,
-		`user { id: int @id address: { city: text @optional @optional } }`: `duplicate @optional annotation on field "address.city"`,
+		`user { id: int @id address: { id: int @id } };`:                    `@id is not allowed inside an embedded block (field "address.id")`,
+		`user { id: int @id address: { n: int @auto } };`:                   `@auto is not allowed inside an embedded block (field "address.n")`,
+		`user { id: int @id a: { b: { c: int @id } } };`:                    `@id is not allowed inside an embedded block (field "a.b.c")`,
+		`user { id: int @id address: { city: text } @id };`:                 `only @optional is allowed on an embedded block (field "address")`,
+		`user { id: int @id address: { city: text @optional @optional } };`: `duplicate @optional annotation on field "address.city"`,
 	}
 
 	for input, want := range cases {

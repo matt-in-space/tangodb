@@ -3,7 +3,7 @@ package core
 import "fmt"
 
 func ParseMerge(input string) (MergeOperation, error) {
-	tokens, err := lex(input)
+	tokens, err := lexStatement(input)
 	if err != nil {
 		return MergeOperation{}, err
 	}
@@ -31,9 +31,6 @@ func (p *parser) parseMerge() (Operation, error) {
 	// Filter parens are mandatory here, same as delete and for the same
 	// reason: merge is a bulk mutating operation, so skipping the filter
 	// position entirely shouldn't silently mean "match everything."
-	if p.peek().kind == tokenEOF {
-		return nil, ErrIncompleteInput
-	}
 
 	if p.peek().kind != tokenLParen {
 		return nil, fmt.Errorf("merge requires an explicit filter, e.g. ~> %s() to match everything", collectionName)
@@ -45,8 +42,7 @@ func (p *parser) parseMerge() (Operation, error) {
 	}
 
 	// The payload is mandatory too — parseRecordLiteral's own expect(LBrace)
-	// naturally produces ErrIncompleteInput if we're still waiting on '{',
-	// or a hard error if something else (like '=>') appears in its place.
+	// produces a hard error if something else (like '=>') appears in its place.
 	payload, err := p.parseRecordLiteral()
 	if err != nil {
 		return nil, err
@@ -69,9 +65,6 @@ func (p *parser) parseMerge() (Operation, error) {
 		if projection == nil {
 			projection = []string{}
 		}
-
-	case tokenEOF:
-		return nil, ErrIncompleteInput
 	}
 
 	if err := p.expectEndOfStatement(); err != nil {

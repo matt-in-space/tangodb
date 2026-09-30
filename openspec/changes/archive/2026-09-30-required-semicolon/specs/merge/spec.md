@@ -1,8 +1,4 @@
-## Purpose
-
-Lets a client bulk-update every record in a collection matching a filter by merging new field values into each match, while making it structurally hard to update an entire collection by accident or to corrupt a record's identity through the update itself.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Merge statement requires explicit filter parens
 The system SHALL require a `(...)` filter clause immediately after the collection name in a `~>` statement, even when the filter is empty. A `~>` statement with no filter parens at all SHALL be rejected as invalid, rather than treated as an implicit "update everything" shorthand.
@@ -47,28 +43,6 @@ The system SHALL reject, with an error and no mutation, any merge whose payload 
 - **WHEN** a client sends `~> user(id: 1) {name: "Matt"};` and `id` is the collection's declared primary key
 - **THEN** the matching record's `name` is updated normally
 
-### Requirement: Merge result defaults to a count
-The system SHALL, when a merge statement has no `=>` projection clause, return only the number of records updated, not the updated records themselves, displayed as a bare integer with no surrounding words.
-
-#### Scenario: Merge with no projection
-- **WHEN** a client sends `~> user(id: 1) {name: "Matt"};` and one record matches
-- **THEN** the system returns an updated count of 1, displayed as the bare text `1` — not `"1 updated"` or any other wording — without including that record's field values
-
-### Requirement: Merge result can opt into returning updated records
-The system SHALL, when a merge statement includes an `=> {...}` projection clause, return the updated records themselves — reflecting their state after the merge — limited to the projected fields, in addition to the count. The projection MAY be a wildcard `*` in place of a field list, meaning every field currently declared in the collection's schema; `*` MUST be the sole content of the projection — combining it with named fields SHALL be rejected as a parse error.
-
-#### Scenario: Merge with a projection
-- **WHEN** a client sends `~> user(id: 1) {name: "Matt"} => {id, name};` and the matching record was `{id: 1, name: "Sam"}` before the merge
-- **THEN** the system returns `{id: 1, name: "Matt"}` (the post-merge state) alongside an updated count of 1
-
-#### Scenario: Merge with a wildcard projection
-- **WHEN** a client sends `~> user(id: 1) {name: "Matt"} => {*};` against a schema with fields `id`, `name`, and `age`, and the matching record was `{id: 1, name: "Sam", age: 40}` before the merge
-- **THEN** the system returns all three fields reflecting the post-merge state (`{id: 1, name: "Matt", age: 40}`) alongside an updated count of 1
-
-#### Scenario: Wildcard cannot be combined with named fields
-- **WHEN** a client sends `~> user(id: 1) {name: "Matt"} => {*, id};` or `~> user(id: 1) {name: "Matt"} => {id, *};`
-- **THEN** the system returns a parse error and does not update anything
-
 ### Requirement: Merge validates the collection and field names
 The system SHALL return an error, without updating anything, if the named collection does not exist, or if any field referenced in the filter or projection is not declared in that collection's schema.
 
@@ -79,21 +53,3 @@ The system SHALL return an error, without updating anything, if the named collec
 #### Scenario: Unknown field in filter
 - **WHEN** a client sends `~> user(nope: 1) {name: "Matt"};` and `user` has no `nope` field
 - **THEN** the system returns an error and updates nothing
-
-### Requirement: Merge payload must not set an auto-increment field
-The system SHALL reject, with an error and no mutation, any merge whose payload includes an `@auto` field. If the field is also the primary key, the existing primary-key error SHALL be reported instead. Filtering on an `@auto` field is unaffected.
-
-#### Scenario: Payload sets a non-id auto field
-- **WHEN** collection `ticket { code: text @id number: int @auto }` holds a record and a client sends `~> ticket() {number: 5};`
-- **THEN** the system returns `payload must not set auto-increment field "number" for collection "ticket"` and changes no record
-
-#### Scenario: Filtering on an auto field
-- **WHEN** collection `ticket { code: text @id number: int @auto title: text @optional }` holds `{code: "A" number: 1}` and a client sends `~> ticket(number: 1) {title: "hi"};`
-- **THEN** the system updates that record's `title`
-
-### Requirement: Merge payload cannot set an embedded object yet
-The system SHALL reject, with an error and no mutation, a merge whose payload sets an embedded object field.
-
-#### Scenario: Payload sets an object field
-- **WHEN** collection `user { id: int @id address: { city: text } }` holds a record and a client sends `~> user(id: 1) {address: {city: "MSP"}};`
-- **THEN** the system returns `merge payload cannot set embedded object field "address" yet` and changes no record

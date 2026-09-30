@@ -4,7 +4,7 @@ import "testing"
 
 func TestAuto_SequentialValuesOnNonIDField(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `ticket { code: text @id number: int @auto }`)
+	runStatements(t, d, `ticket { code: text @id number: int @auto };`)
 
 	first := runStatements(t, d, `>> ticket {code: "A"} => {*};`).(InsertResult)
 	second := runStatements(t, d, `>> ticket {code: "B"} => {*};`).(InsertResult)
@@ -16,7 +16,7 @@ func TestAuto_SequentialValuesOnNonIDField(t *testing.T) {
 
 func TestAuto_IndependentCounters(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `event { id: int @id @auto seq: int @auto name: text }`)
+	runStatements(t, d, `event { id: int @id @auto seq: int @auto name: text };`)
 
 	first := runStatements(t, d, `>> event {name: "a"} => {*};`).(InsertResult)
 	second := runStatements(t, d, `>> event {name: "b"} => {*};`).(InsertResult)
@@ -30,7 +30,7 @@ func TestAuto_IndependentCounters(t *testing.T) {
 
 func TestAuto_CollectionWithNoPrimaryKey(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `log { seq: int @auto message: text }`)
+	runStatements(t, d, `log { seq: int @auto message: text };`)
 
 	result := runStatements(t, d, `>> log {message: "hi"} => {*};`).(InsertResult)
 	if result.Records[0]["seq"] != int64(1) {
@@ -40,7 +40,7 @@ func TestAuto_CollectionWithNoPrimaryKey(t *testing.T) {
 
 func TestAuto_InsertRejectsSuppliedNonIDAutoField(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `ticket { code: text @id number: int @auto }`)
+	runStatements(t, d, `ticket { code: text @id number: int @auto };`)
 
 	for _, statement := range []string{`>> ticket {code: "A" number: 7};`, `>> ticket {code: "A" number: null};`} {
 		got := runExpectingError(t, d, statement)
@@ -56,7 +56,7 @@ func TestAuto_InsertRejectsSuppliedNonIDAutoField(t *testing.T) {
 
 func TestAuto_FailedInsertDoesNotConsumeValue(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `ticket { code: text @id number: int @auto }`, `>> ticket {code: "A"};`)
+	runStatements(t, d, `ticket { code: text @id number: int @auto };`, `>> ticket {code: "A"};`)
 
 	got := runExpectingError(t, d, `>> ticket {code: "A"};`)
 	if got != `duplicate primary key A for collection "ticket"` {
@@ -71,7 +71,7 @@ func TestAuto_FailedInsertDoesNotConsumeValue(t *testing.T) {
 
 func TestAuto_MergeRejectsPayloadSettingNonIDAutoField(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `ticket { code: text @id number: int @auto }`, `>> ticket {code: "A"};`)
+	runStatements(t, d, `ticket { code: text @id number: int @auto };`, `>> ticket {code: "A"};`)
 
 	got := runExpectingError(t, d, `~> ticket() {number: 5};`)
 
@@ -85,7 +85,7 @@ func TestAuto_MergeRejectsPayloadSettingNonIDAutoField(t *testing.T) {
 
 func TestAuto_MergeReportsPrimaryKeyErrorForAutoPrimaryKey(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id @auto name: text }`, `>> user {name: "Matt"};`)
+	runStatements(t, d, `user { id: int @id @auto name: text };`, `>> user {name: "Matt"};`)
 
 	got := runExpectingError(t, d, `~> user() {id: 5};`)
 
@@ -98,7 +98,7 @@ func TestAuto_MergeReportsPrimaryKeyErrorForAutoPrimaryKey(t *testing.T) {
 func TestAuto_MergeCanFilterOnAutoField(t *testing.T) {
 	d := NewDatabase("test")
 	runStatements(t, d,
-		`ticket { code: text @id number: int @auto title: text @optional }`,
+		`ticket { code: text @id number: int @auto title: text @optional };`,
 		`>> ticket {code: "A"};`,
 		`~> ticket(number: 1) {title: "hi"};`,
 	)

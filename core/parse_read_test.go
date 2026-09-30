@@ -6,7 +6,7 @@ import (
 )
 
 func TestParseRead_ParsesFilterAndProjection(t *testing.T) {
-	o, err := ParseRead(`<< user(id: 1) => {id, name}`)
+	o, err := ParseRead(`<< user(id: 1) => {id, name};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -25,7 +25,7 @@ func TestParseRead_ParsesFilterAndProjection(t *testing.T) {
 }
 
 func TestParseRead_AllowsMultipleFilterConditions(t *testing.T) {
-	o, err := ParseRead(`<< user(id: 1, name: "Matt") => {id}`)
+	o, err := ParseRead(`<< user(id: 1, name: "Matt") => {id};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -36,7 +36,7 @@ func TestParseRead_AllowsMultipleFilterConditions(t *testing.T) {
 }
 
 func TestParseRead_AllowsEmptyFilter(t *testing.T) {
-	o, err := ParseRead(`<< user() => {id}`)
+	o, err := ParseRead(`<< user() => {id};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -48,12 +48,12 @@ func TestParseRead_AllowsEmptyFilter(t *testing.T) {
 
 func TestParseRead_RejectsMissingProjection(t *testing.T) {
 	if _, err := ParseRead(`<< user(id: 1)`); !errors.Is(err, ErrIncompleteInput) {
-		t.Fatalf("expected ErrIncompleteInput for a missing projection, got %v", err)
+		t.Fatalf("expected ErrIncompleteInput for a read with no ';' yet, got %v", err)
 	}
 }
 
 func TestParseRead_AllowsOmittingFilterParensWhenArrowFollows(t *testing.T) {
-	o, err := ParseRead(`<< user => {id, name}`)
+	o, err := ParseRead(`<< user => {id, name};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -113,7 +113,7 @@ func TestParseRead_SemicolonToleratedOnAFullyExplicitStatement(t *testing.T) {
 }
 
 func TestParseRead_FilterWithoutCommas(t *testing.T) {
-	o, err := ParseRead(`<< user(id: 1 name: "Matt") => {id}`)
+	o, err := ParseRead(`<< user(id: 1 name: "Matt") => {id};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestParseRead_FilterWithoutCommas(t *testing.T) {
 }
 
 func TestParseRead_ProjectionWithoutCommas(t *testing.T) {
-	o, err := ParseRead(`<< user() => {id name}`)
+	o, err := ParseRead(`<< user() => {id name};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestParseRead_BareCollectionNameWithoutSemicolonIsIncomplete(t *testing.T) 
 }
 
 func TestParse_DispatchesToRead(t *testing.T) {
-	o, err := Parse(`<< user() => {id}`)
+	o, err := Parse(`<< user() => {id};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}

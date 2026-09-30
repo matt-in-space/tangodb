@@ -96,7 +96,7 @@ func TestParseDelete_RejectsArrowInPlaceOfFilterParens(t *testing.T) {
 
 func TestParseDelete_BareCollectionNameIsIncomplete(t *testing.T) {
 	if _, err := ParseDelete(`!> user`); !errors.Is(err, ErrIncompleteInput) {
-		t.Fatalf("expected ErrIncompleteInput for a collection name with nothing after it yet, got %v", err)
+		t.Fatalf("expected ErrIncompleteInput for a collection name with no filter or ';' yet, got %v", err)
 	}
 }
 

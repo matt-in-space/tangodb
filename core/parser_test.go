@@ -6,7 +6,7 @@ import (
 )
 
 func TestParse_DispatchesToDefineCollection(t *testing.T) {
-	o, err := Parse(`user { id: int @id }`)
+	o, err := Parse(`user { id: int @id };`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -22,7 +22,7 @@ func TestParse_DispatchesToDefineCollection(t *testing.T) {
 }
 
 func TestParse_RejectsUnrecognizedStatement(t *testing.T) {
-	if _, err := Parse(`: nonsense`); err == nil {
+	if _, err := Parse(`: nonsense;`); err == nil || errors.Is(err, ErrIncompleteInput) {
 		t.Fatal("expected an error for an unrecognized statement")
 	}
 }
@@ -97,8 +97,8 @@ func TestLex_TrailingDotIsNotPartOfAName(t *testing.T) {
 
 func TestParse_RejectsDottedNamesWhereNamesAreDeclaredOrWritten(t *testing.T) {
 	cases := map[string]string{
-		`user { address.city: text }`:      `field name "address.city" cannot contain "."`,
-		`user.x { id: int }`:               `collection name "user.x" cannot contain "."`,
+		`user { address.city: text };`:     `field name "address.city" cannot contain "."`,
+		`user.x { id: int };`:              `collection name "user.x" cannot contain "."`,
 		`>> user {address.city: "MSP"};`:   `field name "address.city" cannot contain "."`,
 		`~> user() {address.city: "MSP"};`: `field name "address.city" cannot contain "."`,
 		`<< user.address;`:                 `collection name "user.address" cannot contain "."`,
@@ -109,5 +109,75 @@ func TestParse_RejectsDottedNamesWhereNamesAreDeclaredOrWritten(t *testing.T) {
 		if err == nil || err.Error() != want {
 			t.Fatalf("for %q expected error %q, got %v", input, want, err)
 		}
+	}
+}
+
+func TestParse_EveryStatementIsIncompleteWithoutSemicolon(t *testing.T) {
+	for _, input := range []string{
+		`user { id: int @id }`,
+		`>> user {id: 1}`,
+		`>> user {id: 1} => {id}`,
+		`<< user => {*}`,
+		`<< user(id: 1) => {id}`,
+		`!> user(id: 1) => {id}`,
+		`~> user(id: 1) {name: "Matt"} => {id}`,
+		">> user {id: 1}\n\n",
+	} {
+		if _, err := Parse(input); !errors.Is(err, ErrIncompleteInput) {
+			t.Fatalf("expected %q to be incomplete, got %v", input, err)
+		}
+	}
+}
+
+func TestParse_SemicolonCompletesEveryStatement(t *testing.T) {
+	for _, input := range []string{
+		`user { id: int @id };`,
+		`>> user {id: 1};`,
+		`<< user => {*};`,
+		`!> user(id: 1);`,
+		`~> user(id: 1) {name: "Matt"};`,
+		">> user {id: 1}\n\n;",
+	} {
+		if _, err := Parse(input); err != nil {
+			t.Fatalf("expected %q to parse, got %v", input, err)
+		}
+	}
+}
+
+func TestParse_SemicolonInsideStringOrBracketsDoesNotCount(t *testing.T) {
+	for _, input := range []string{`>> user {name: "a;b"}`, `>> user {id: 1;`, `<< user(id: 1; name: "x"`} {
+		if _, err := Parse(input); !errors.Is(err, ErrIncompleteInput) {
+			t.Fatalf("expected %q to be incomplete, got %v", input, err)
+		}
+	}
+}
+
+func TestParse_MistakeWaitsForTheSemicolon(t *testing.T) {
+	if _, err := Parse(`>> user {id: 1} nonsense`); !errors.Is(err, ErrIncompleteInput) {
+		t.Fatalf("expected incomplete input before the ';', got %v", err)
+	}
+
+	_, err := Parse(`>> user {id: 1} nonsense;`)
+	if err == nil || errors.Is(err, ErrIncompleteInput) {
+		t.Fatalf("expected a parse error once the ';' arrives, got %v", err)
+	}
+}
+
+func TestParse_OneStatementAtATime(t *testing.T) {
+	_, err := Parse(`>> user {id: 1}; << user;`)
+
+	want := `unexpected input after statement: "<<"`
+	if err == nil || err.Error() != want {
+		t.Fatalf("expected error %q, got %v", want, err)
+	}
+}
+
+func TestParse_DirectParsersRequireSemicolonToo(t *testing.T) {
+	if _, err := ParseDefineCollection(`user { id: int }`); !errors.Is(err, ErrIncompleteInput) {
+		t.Fatalf("expected ParseDefineCollection to require ';', got %v", err)
+	}
+
+	if _, err := ParseDelete(`!> user(id: 1)`); !errors.Is(err, ErrIncompleteInput) {
+		t.Fatalf("expected ParseDelete to require ';', got %v", err)
 	}
 }

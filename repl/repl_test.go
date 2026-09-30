@@ -8,7 +8,7 @@ import (
 
 func TestRunREPL_DefinesInsertsMergesThenReadsInOneSession(t *testing.T) {
 	in := strings.NewReader(
-		"user { id: int @id name: text age: int }\n" +
+		"user { id: int @id name: text age: int };\n" +
 			">> user {id: 1, name: \"Sam\", age: 40};\n" +
 			">> user {id: 2, name: \"Pat\", age: 40};\n" +
 			"~> user(id: 1) {name: \"Matt\"};\n" +
@@ -35,7 +35,7 @@ func TestRunREPL_DefinesInsertsMergesThenReadsInOneSession(t *testing.T) {
 
 func TestRunREPL_DefinesInsertsDeletesThenReadsInOneSession(t *testing.T) {
 	in := strings.NewReader(
-		"user { id: int @id name: text }\n" +
+		"user { id: int @id name: text };\n" +
 			">> user {id: 1, name: \"Matt\"};\n" +
 			">> user {id: 2, name: \"Sam\"};\n" +
 			"!> user(name: \"Matt\");\n" +
@@ -61,7 +61,7 @@ func TestRunREPL_DefinesInsertsDeletesThenReadsInOneSession(t *testing.T) {
 }
 
 func TestRunREPL_ExitStopsTheLoop(t *testing.T) {
-	in := strings.NewReader("exit\nuser { id: int @id }\n")
+	in := strings.NewReader("exit\nuser { id: int @id };\n")
 	var out bytes.Buffer
 
 	RunREPL(in, &out)
@@ -74,7 +74,7 @@ func TestRunREPL_ExitStopsTheLoop(t *testing.T) {
 }
 
 func TestRunREPL_ExitIsCaseInsensitiveAndTrimsWhitespace(t *testing.T) {
-	in := strings.NewReader("  EXIT  \nuser { id: int @id }\n")
+	in := strings.NewReader("  EXIT  \nuser { id: int @id };\n")
 	var out bytes.Buffer
 
 	RunREPL(in, &out)
@@ -87,7 +87,7 @@ func TestRunREPL_ExitIsCaseInsensitiveAndTrimsWhitespace(t *testing.T) {
 }
 
 func TestRunREPL_SubmitsOnlyOnceStatementIsComplete(t *testing.T) {
-	in := strings.NewReader("user {\n  id: int @id\n}\n")
+	in := strings.NewReader("user {\n  id: int @id\n};\n")
 	var out bytes.Buffer
 
 	RunREPL(in, &out)
@@ -104,7 +104,7 @@ func TestRunREPL_SubmitsOnlyOnceStatementIsComplete(t *testing.T) {
 }
 
 func TestRunREPL_SubmitsASingleLineStatementImmediately(t *testing.T) {
-	in := strings.NewReader("user { name: text }\n")
+	in := strings.NewReader("user { name: text };\n")
 	var out bytes.Buffer
 
 	RunREPL(in, &out)
@@ -121,7 +121,7 @@ func TestRunREPL_SubmitsASingleLineStatementImmediately(t *testing.T) {
 }
 
 func TestRunREPL_ReportsAnErrorAndRecovers(t *testing.T) {
-	in := strings.NewReader(": nonsense\nuser { name: text }\n")
+	in := strings.NewReader(": nonsense;\nuser { name: text };\n")
 	var out bytes.Buffer
 
 	RunREPL(in, &out)
@@ -138,7 +138,7 @@ func TestRunREPL_ReportsAnErrorAndRecovers(t *testing.T) {
 }
 
 func TestRunREPL_DefinesThenInsertsInOneSession(t *testing.T) {
-	in := strings.NewReader("user { id: int @id name: text }\n>> user {id: 1, name: \"Matt\"};\n")
+	in := strings.NewReader("user { id: int @id name: text };\n>> user {id: 1, name: \"Matt\"};\n")
 	var out bytes.Buffer
 
 	RunREPL(in, &out)
@@ -149,7 +149,7 @@ func TestRunREPL_DefinesThenInsertsInOneSession(t *testing.T) {
 }
 
 func TestRunREPL_InsertWithProjectionPrintsTable(t *testing.T) {
-	in := strings.NewReader("user { id: int @id @auto name: text }\n>> user {name: \"Matt\"} => {id, name}\n")
+	in := strings.NewReader("user { id: int @id @auto name: text };\n>> user {name: \"Matt\"} => {id, name};\n")
 	var out bytes.Buffer
 
 	RunREPL(in, &out)
@@ -173,7 +173,7 @@ func TestRunREPL_UnterminatedInsertWaitsForMoreInput(t *testing.T) {
 }
 
 func TestRunREPL_InsertReportsDuplicateKeyError(t *testing.T) {
-	in := strings.NewReader("user { id: int @id }\n>> user {id: 1};\n>> user {id: 1};\n")
+	in := strings.NewReader("user { id: int @id };\n>> user {id: 1};\n>> user {id: 1};\n")
 	var out bytes.Buffer
 
 	RunREPL(in, &out)
@@ -200,10 +200,10 @@ func TestRunREPL_InsertReportsUnknownCollectionError(t *testing.T) {
 
 func TestRunREPL_DefinesInsertsThenReadsInOneSession(t *testing.T) {
 	in := strings.NewReader(
-		"user { id: int @id name: text }\n" +
+		"user { id: int @id name: text };\n" +
 			">> user {id: 1, name: \"Matt\"};\n" +
 			">> user {id: 2, name: \"Sam\"};\n" +
-			"<< user(name: \"Sam\") => {id, name}\n",
+			"<< user(name: \"Sam\") => {id, name};\n",
 	)
 	var out bytes.Buffer
 
@@ -226,7 +226,7 @@ func TestRunREPL_DefinesInsertsThenReadsInOneSession(t *testing.T) {
 
 func TestRunREPL_BareReadWithSemicolonReturnsCountOnly(t *testing.T) {
 	in := strings.NewReader(
-		"user { id: int @id name: text }\n" +
+		"user { id: int @id name: text };\n" +
 			">> user {id: 1, name: \"Matt\"};\n" +
 			">> user {id: 2, name: \"Sam\"};\n" +
 			"<< user;\n",
@@ -248,7 +248,7 @@ func TestRunREPL_BareReadWithSemicolonReturnsCountOnly(t *testing.T) {
 
 func TestRunREPL_WildcardProjectionReturnsEverythingExplicitly(t *testing.T) {
 	in := strings.NewReader(
-		"user { id: int @id name: text }\n" +
+		"user { id: int @id name: text };\n" +
 			">> user {id: 1, name: \"Matt\"};\n" +
 			">> user {id: 2, name: \"Sam\"};\n" +
 			"<< user => {*};\n",
@@ -282,7 +282,7 @@ func TestRunREPL_BareReadWithoutSemicolonWaitsForMore(t *testing.T) {
 }
 
 func TestRunREPL_ReadReportsNoRecordsFound(t *testing.T) {
-	in := strings.NewReader("user { id: int @id }\n<< user() => {id}\n")
+	in := strings.NewReader("user { id: int @id };\n<< user() => {id};\n")
 	var out bytes.Buffer
 
 	RunREPL(in, &out)
@@ -295,7 +295,7 @@ func TestRunREPL_ReadReportsNoRecordsFound(t *testing.T) {
 }
 
 func TestRunREPL_PrintsSchemaWithoutWrapper(t *testing.T) {
-	in := strings.NewReader("user { id: int @id name: text }\n")
+	in := strings.NewReader("user { id: int @id name: text };\n")
 	var out bytes.Buffer
 
 	RunREPL(in, &out)
@@ -308,7 +308,7 @@ func TestRunREPL_PrintsSchemaWithoutWrapper(t *testing.T) {
 
 func TestRunREPL_MultiLineMistakeReportsOneError(t *testing.T) {
 	in := strings.NewReader(
-		"user { id: int @id name: text }\n" +
+		"user { id: int @id name: text };\n" +
 			">> user {\n" +
 			"  id: 1\n" +
 			"  name: Matt\n" +
@@ -349,5 +349,62 @@ func TestRunREPL_UnmatchedClosingBracketErrorsImmediately(t *testing.T) {
 
 	if strings.Contains(output, continuationPrompt) {
 		t.Fatalf("did not expect a continuation prompt, got: %q", output)
+	}
+}
+
+func TestRunREPL_DefinitionWaitsForSemicolon(t *testing.T) {
+	in := strings.NewReader("user { id: int @id }\n")
+	var out bytes.Buffer
+
+	RunREPL(in, &out)
+
+	output := strings.TrimRight(out.String(), "\n")
+	if !strings.HasSuffix(output, continuationPrompt) || strings.Contains(output, "id: int @id\n}") {
+		t.Fatalf("expected the definition to wait for ';', got: %q", out.String())
+	}
+}
+
+func TestRunREPL_SemicolonOnALaterLineRunsOnce(t *testing.T) {
+	in := strings.NewReader("user { id: int @id }\n\n;\n>> user {id: 1}\n\n;\n<< user;\n")
+	var out bytes.Buffer
+
+	RunREPL(in, &out)
+
+	output := out.String()
+
+	if strings.Contains(output, "error:") {
+		t.Fatalf("expected no errors, got: %q", output)
+	}
+
+	if strings.Count(output, "1\n") < 2 {
+		t.Fatalf("expected the insert and the read to each report 1, got: %q", output)
+	}
+}
+
+func TestRunREPL_MistakeIsReportedOnceAfterSemicolon(t *testing.T) {
+	in := strings.NewReader("user { id: int @id };\n>> user {id: 1} nonsense\n;\n")
+	var out bytes.Buffer
+
+	RunREPL(in, &out)
+
+	output := out.String()
+
+	if strings.Count(output, "error:") != 1 {
+		t.Fatalf("expected exactly one error, got: %q", output)
+	}
+
+	if !strings.Contains(output, continuationPrompt+"error:") {
+		t.Fatalf("expected the error only after the ';' line, got: %q", output)
+	}
+}
+
+func TestRunREPL_ExitNeedsNoSemicolon(t *testing.T) {
+	in := strings.NewReader("exit\n>> user {id: 1};\n")
+	var out bytes.Buffer
+
+	RunREPL(in, &out)
+
+	if strings.Contains(out.String(), "error:") || strings.Contains(out.String(), "1\n") {
+		t.Fatalf("expected the REPL to stop at exit, got: %q", out.String())
 	}
 }

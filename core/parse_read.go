@@ -1,7 +1,7 @@
 package core
 
 func ParseRead(input string) (ReadOperation, error) {
-	tokens, err := lex(input)
+	tokens, err := lexStatement(input)
 	if err != nil {
 		return ReadOperation{}, err
 	}
@@ -45,9 +45,6 @@ func (p *parser) parseRead() (Operation, error) {
 		if err != nil {
 			return nil, err
 		}
-
-	case tokenEOF:
-		return nil, ErrIncompleteInput
 	}
 
 	// Anything other than '=>' (handled above) or ';'/EOF (handled by

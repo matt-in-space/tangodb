@@ -1,8 +1,4 @@
-## Purpose
-
-Makes a collection's schema binding: every value written to a collection or used to filter it must match its field's declared type exactly, fields the schema doesn't declare are rejected, and a statement that fails validation changes nothing.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Values must match the declared field type exactly
 The system SHALL reject any insert record, merge payload, or filter (read, delete, merge) containing a value whose type does not exactly match its field's declared type. An integer literal SHALL match only `int`, a decimal literal only `float`, a quoted string only `text`, and `true`/`false` only `bool`. The system SHALL NOT convert between types, including from integer to float. The one exception is `null`, which is valid for an optional field and SHALL NOT be treated as a type mismatch there. The error SHALL name the field, the declared type, and the value's type.
@@ -93,17 +89,6 @@ Every declared field not marked `@optional` is required. The system SHALL reject
 - **WHEN** collection `user { id: int @id name: text }` holds a record and a client sends `~> user() {name: null};`
 - **THEN** the system returns `field "name" is required and cannot be null` and changes no record
 
-### Requirement: Null clears an optional field
-Writing `null` to an optional field SHALL leave it with no value. On merge, this SHALL clear any value the matched records had. Omitting an optional field and writing `null` for it SHALL be indistinguishable afterward.
-
-#### Scenario: Merge clears a value
-- **WHEN** collection `user { id: int @id nickname: text @optional }` holds `{id: 1 nickname: "M"}` and a client sends `~> user(id: 1) {nickname: null};`
-- **THEN** `<< user(nickname: null);` returns `1`
-
-#### Scenario: Omitted and null are the same
-- **WHEN** a client inserts `{id: 1}` and `{id: 2 nickname: null}` into collection `user { id: int @id nickname: text @optional }`
-- **THEN** `<< user(nickname: null);` returns `2`
-
 ### Requirement: Filtering on null
 A filter condition `field: null` SHALL match exactly the records where that optional field has no value, using ordinary equality: `null` equals `null`. A `null` filter on a required field SHALL be an error, since it could never match.
 
@@ -114,44 +99,3 @@ A filter condition `field: null` SHALL match exactly the records where that opti
 #### Scenario: Null filter on a required field is rejected
 - **WHEN** collection `user { id: int @id name: text }` exists and a client sends `<< user(name: null);`
 - **THEN** the system returns `field "name" is required and cannot be null`
-
-### Requirement: Missing values display as null
-When a projected field has no value on a record, the system SHALL display it as `null` rather than as an empty cell.
-
-#### Scenario: Projection shows null
-- **WHEN** collection `user { id: int @id nickname: text @optional }` holds `{id: 1}` and a client sends `<< user => {id, nickname};`
-- **THEN** the row for `id` 1 shows `null` in the `nickname` column
-
-### Requirement: Embedded values are validated recursively
-The system SHALL validate a value for an embedded block field against that block's fields, using the same rules as top-level fields: undeclared fields are rejected, types must match exactly, `null` is only allowed on optional fields, and required fields must have a value. Required fields inside an optional block SHALL only be checked when the block has a value. Every problem SHALL name the field's full dotted path.
-
-#### Scenario: Wrong type inside a block
-- **WHEN** collection `user { id: int @id address: { city: text } }` exists and a client sends `>> user {id: 1 address: {city: 5}};`
-- **THEN** the system returns `field "address.city": expected text, got int` and stores nothing
-
-#### Scenario: Missing required field inside a block
-- **WHEN** collection `user { id: int @id address: { street: text city: text } }` exists and a client sends `>> user {id: 1 address: {city: "MSP"}};`
-- **THEN** the system returns `field "address.street" is required for collection "user"`
-
-#### Scenario: Undeclared field inside a block
-- **WHEN** collection `user { id: int @id address: { city: text } }` exists and a client sends `>> user {id: 1 address: {city: "MSP" zip: "55401"}};`
-- **THEN** the system returns `field "address.zip" not found in schema for collection "user"`
-
-#### Scenario: Optional block omitted
-- **WHEN** collection `user { id: int @id address: { city: text } @optional }` exists and a client sends `>> user {id: 1};`
-- **THEN** the system stores the record with no value for `address`
-
-#### Scenario: Required block omitted
-- **WHEN** collection `user { id: int @id address: { city: text } }` exists and a client sends `>> user {id: 1};`
-- **THEN** the system returns `field "address" is required for collection "user"`
-
-### Requirement: Values must have the declared shape
-The system SHALL reject a scalar value on an embedded block field, and an object value on a scalar field.
-
-#### Scenario: Scalar on a block field
-- **WHEN** collection `user { id: int @id address: { city: text } }` exists and a client sends `>> user {id: 1 address: 5};`
-- **THEN** the system returns `field "address": expected object, got int`
-
-#### Scenario: Object on a scalar field
-- **WHEN** collection `user { id: int @id name: text }` exists and a client sends `>> user {id: 1 name: {first: "Matt"}};`
-- **THEN** the system returns `field "name": expected text, got object`

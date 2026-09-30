@@ -6,7 +6,7 @@ import (
 )
 
 func ParseDefineCollection(input string) (DefineCollectionOperation, error) {
-	tokens, err := lex(input)
+	tokens, err := lexStatement(input)
 	if err != nil {
 		return DefineCollectionOperation{}, err
 	}

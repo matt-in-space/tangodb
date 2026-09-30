@@ -225,7 +225,7 @@ func TestDatabaseRun_InsertRejectsUnknownCollection(t *testing.T) {
 
 func TestInsert_WithoutProjectionReturnsCount(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text }`)
+	runStatements(t, d, `user { id: int @id name: text };`)
 
 	result := runStatements(t, d, `>> user {id: 1 name: "Matt"};`).(InsertResult)
 
@@ -242,9 +242,9 @@ func TestInsert_WithoutProjectionReturnsCount(t *testing.T) {
 
 func TestInsert_ProjectionReturnsGeneratedID(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id @auto name: text }`)
+	runStatements(t, d, `user { id: int @id @auto name: text };`)
 
-	got := runStatements(t, d, `>> user {name: "Matt"} => {id}`).(InsertResult).String()
+	got := runStatements(t, d, `>> user {name: "Matt"} => {id};`).(InsertResult).String()
 
 	want := "id\n1"
 	if got != want {
@@ -254,9 +254,9 @@ func TestInsert_ProjectionReturnsGeneratedID(t *testing.T) {
 
 func TestInsert_WildcardProjectionShowsStoredRecord(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text nickname: text @optional }`)
+	runStatements(t, d, `user { id: int @id name: text nickname: text @optional };`)
 
-	got := runStatements(t, d, `>> user {id: 1 name: "Matt"} => {*}`).(InsertResult).String()
+	got := runStatements(t, d, `>> user {id: 1 name: "Matt"} => {*};`).(InsertResult).String()
 
 	want := "id  name  nickname\n1   Matt  null"
 	if got != want {
@@ -266,9 +266,9 @@ func TestInsert_WildcardProjectionShowsStoredRecord(t *testing.T) {
 
 func TestInsert_UnknownProjectionFieldStoresNothing(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id @auto name: text }`)
+	runStatements(t, d, `user { id: int @id @auto name: text };`)
 
-	got := runExpectingError(t, d, `>> user {name: "Matt"} => {nope}`)
+	got := runExpectingError(t, d, `>> user {name: "Matt"} => {nope};`)
 
 	want := `field "nope" not found in schema for collection "user"`
 	if got != want {
@@ -278,7 +278,7 @@ func TestInsert_UnknownProjectionFieldStoresNothing(t *testing.T) {
 	expectCount(t, d, `<< user;`, "0")
 
 	// The failed insert must not have used up an auto-increment value either.
-	got = runStatements(t, d, `>> user {name: "Matt"} => {id}`).(InsertResult).String()
+	got = runStatements(t, d, `>> user {name: "Matt"} => {id};`).(InsertResult).String()
 	if got != "id\n1" {
 		t.Fatalf("expected id 1, got:\n%s", got)
 	}

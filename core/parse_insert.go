@@ -7,7 +7,7 @@ import (
 )
 
 func ParseInsert(input string) (InsertOperation, error) {
-	tokens, err := lex(input)
+	tokens, err := lexStatement(input)
 	if err != nil {
 		return InsertOperation{}, err
 	}
@@ -42,11 +42,6 @@ func (p *parser) parseInsert() (Operation, error) {
 	for p.peek().kind == tokenAmp {
 		p.next()
 
-		// A trailing '&' promises another record, so keep waiting for it.
-		if p.peek().kind == tokenEOF {
-			return nil, ErrIncompleteInput
-		}
-
 		record, err := p.parseRecordLiteral()
 		if err != nil {
 			return nil, err
@@ -71,10 +66,6 @@ func (p *parser) parseInsert() (Operation, error) {
 		if projection == nil {
 			projection = []string{}
 		}
-
-	case tokenEOF:
-		// A '=>' projection could still follow the record literal.
-		return nil, ErrIncompleteInput
 	}
 
 	if err := p.expectEndOfStatement(); err != nil {

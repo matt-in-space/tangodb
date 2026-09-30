@@ -2,7 +2,7 @@ package core
 
 import "testing"
 
-const userWithAddress = `user { id: int @id address: { street: text city: text } }`
+const userWithAddress = `user { id: int @id address: { street: text city: text } };`
 
 func TestEmbedded_InsertStoresNestedRecord(t *testing.T) {
 	d := NewDatabase("test")
@@ -16,7 +16,7 @@ func TestEmbedded_InsertStoresNestedRecord(t *testing.T) {
 
 func TestEmbedded_WrongTypeInsideBlock(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id address: { city: text } }`)
+	runStatements(t, d, `user { id: int @id address: { city: text } };`)
 
 	got := runExpectingError(t, d, `>> user {id: 1 address: {city: 5}};`)
 
@@ -42,7 +42,7 @@ func TestEmbedded_MissingRequiredFieldInsideBlock(t *testing.T) {
 
 func TestEmbedded_UndeclaredFieldInsideBlock(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id address: { city: text } }`)
+	runStatements(t, d, `user { id: int @id address: { city: text } };`)
 
 	got := runExpectingError(t, d, `>> user {id: 1 address: {city: "MSP" zip: "55401"}};`)
 
@@ -54,14 +54,14 @@ func TestEmbedded_UndeclaredFieldInsideBlock(t *testing.T) {
 
 func TestEmbedded_OptionalBlockOmitted(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id address: { city: text } @optional }`, `>> user {id: 1};`, `>> user {id: 2 address: null};`)
+	runStatements(t, d, `user { id: int @id address: { city: text } @optional };`, `>> user {id: 1};`, `>> user {id: 2 address: null};`)
 
 	expectCount(t, d, `<< user;`, "2")
 }
 
 func TestEmbedded_RequiredBlockOmitted(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id address: { city: text } }`)
+	runStatements(t, d, `user { id: int @id address: { city: text } };`)
 
 	got := runExpectingError(t, d, `>> user {id: 1};`)
 
@@ -73,7 +73,7 @@ func TestEmbedded_RequiredBlockOmitted(t *testing.T) {
 
 func TestEmbedded_ScalarOnBlockField(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id address: { city: text } }`)
+	runStatements(t, d, `user { id: int @id address: { city: text } };`)
 
 	got := runExpectingError(t, d, `>> user {id: 1 address: 5};`)
 
@@ -85,7 +85,7 @@ func TestEmbedded_ScalarOnBlockField(t *testing.T) {
 
 func TestEmbedded_ObjectOnScalarField(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text }`)
+	runStatements(t, d, `user { id: int @id name: text };`)
 
 	got := runExpectingError(t, d, `>> user {id: 1 name: {first: "Matt"}};`)
 
@@ -97,7 +97,7 @@ func TestEmbedded_ObjectOnScalarField(t *testing.T) {
 
 func TestEmbedded_NestedProblemsAreAllReported(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id address: { street: text city: text geo: { lat: float } } }`)
+	runStatements(t, d, `user { id: int @id address: { street: text city: text geo: { lat: float } } };`)
 
 	got := runExpectingError(t, d, `>> user {id: 1 address: {city: 5 geo: {lat: 1}}};`)
 
@@ -113,7 +113,7 @@ func TestEmbedded_NestedProblemsAreAllReported(t *testing.T) {
 func TestEmbedded_OptionalFieldInsideBlockNullIsStoredAbsent(t *testing.T) {
 	d := NewDatabase("test")
 	runStatements(t, d,
-		`user { id: int @id address: { city: text zip: text @optional } }`,
+		`user { id: int @id address: { city: text zip: text @optional } };`,
 		`>> user {id: 1 address: {city: "MSP" zip: null}};`,
 	)
 
@@ -209,7 +209,7 @@ func TestProjection_RepeatedColumnsAreKeptOnce(t *testing.T) {
 
 func TestProjection_AbsentOptionalObjectShowsNull(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id address: { city: text } @optional }`, `>> user {id: 1};`)
+	runStatements(t, d, `user { id: int @id address: { city: text } @optional };`, `>> user {id: 1};`)
 
 	got := readTable(t, d, `<< user => {*};`)
 
@@ -245,7 +245,7 @@ func TestProjection_InsertWildcardShowsNestedRecord(t *testing.T) {
 	d := NewDatabase("test")
 	runStatements(t, d, userWithAddress)
 
-	got := runStatements(t, d, `>> user {id: 1 address: {street: "1 Main" city: "MSP"}} => {*}`).(InsertResult).String()
+	got := runStatements(t, d, `>> user {id: 1 address: {street: "1 Main" city: "MSP"}} => {*};`).(InsertResult).String()
 
 	want := "address.city  address.street  id\n" +
 		"MSP           1 Main          1"
@@ -257,7 +257,7 @@ func TestProjection_InsertWildcardShowsNestedRecord(t *testing.T) {
 func TestProjection_DeleteReturnsFlattenedColumns(t *testing.T) {
 	d := setupUserWithAddress(t)
 
-	got := runStatements(t, d, `!> user(id: 1) => {id address.city}`).(DeleteResult).String()
+	got := runStatements(t, d, `!> user(id: 1) => {id address.city};`).(DeleteResult).String()
 
 	want := "id  address.city\n1   MSP"
 	if got != want {
@@ -314,7 +314,7 @@ func TestEmbedded_MergePayloadCannotSetObjectYet(t *testing.T) {
 func TestEmbedded_MergeStillUpdatesScalarFieldsAlongsideObjects(t *testing.T) {
 	d := NewDatabase("test")
 	runStatements(t, d,
-		`user { id: int @id name: text address: { city: text } }`,
+		`user { id: int @id name: text address: { city: text } };`,
 		`>> user {id: 1 name: "Matt" address: {city: "MSP"}};`,
 		`~> user(id: 1) {name: "Sam"};`,
 	)

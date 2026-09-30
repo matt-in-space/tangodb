@@ -55,7 +55,7 @@ func expectCount(t *testing.T, d *Database, statement string, want string) {
 
 func TestSchema_InsertRejectsWrongType(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id age: int }`)
+	runStatements(t, d, `user { id: int @id age: int };`)
 
 	got := runExpectingError(t, d, `>> user {id: 1 age: "old"};`)
 
@@ -69,7 +69,7 @@ func TestSchema_InsertRejectsWrongType(t *testing.T) {
 
 func TestSchema_IntegerIntoFloatFieldIsRejected(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `item { id: int @id price: float }`)
+	runStatements(t, d, `item { id: int @id price: float };`)
 
 	got := runExpectingError(t, d, `>> item {id: 1 price: 10};`)
 
@@ -81,16 +81,16 @@ func TestSchema_IntegerIntoFloatFieldIsRejected(t *testing.T) {
 
 func TestSchema_DecimalIntoFloatFieldIsAccepted(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `item { id: int @id price: float }`, `>> item {id: 1 price: 10.0};`)
+	runStatements(t, d, `item { id: int @id price: float };`, `>> item {id: 1 price: 10.0};`)
 
 	expectCount(t, d, `<< item(price: 10.0);`, "1")
 }
 
 func TestSchema_FilterRejectsWrongType(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `item { id: int @id price: float }`, `>> item {id: 1 price: 10.0};`)
+	runStatements(t, d, `item { id: int @id price: float };`, `>> item {id: 1 price: 10.0};`)
 
-	got := runExpectingError(t, d, `<< item(price: 10) => {id}`)
+	got := runExpectingError(t, d, `<< item(price: 10) => {id};`)
 
 	want := `field "price": expected float, got int`
 	if got != want {
@@ -100,7 +100,7 @@ func TestSchema_FilterRejectsWrongType(t *testing.T) {
 
 func TestSchema_MergePayloadRejectsWrongType(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id active: bool }`, `>> user {id: 1 active: false};`)
+	runStatements(t, d, `user { id: int @id active: bool };`, `>> user {id: 1 active: false};`)
 
 	got := runExpectingError(t, d, `~> user(id: 1) {active: "yes"};`)
 
@@ -115,12 +115,12 @@ func TestSchema_MergePayloadRejectsWrongType(t *testing.T) {
 func TestSchema_BoolFieldRoundTrip(t *testing.T) {
 	d := NewDatabase("test")
 	runStatements(t, d,
-		`user { id: int @id active: bool }`,
+		`user { id: int @id active: bool };`,
 		`>> user {id: 1 active: true};`,
 		`>> user {id: 2 active: false};`,
 	)
 
-	result := runStatements(t, d, `<< user(active: true) => {id}`).(ReadResult)
+	result := runStatements(t, d, `<< user(active: true) => {id};`).(ReadResult)
 
 	if len(result.Records) != 1 || result.Records[0]["id"] != int64(1) {
 		t.Fatalf("expected only record 1, got %v", result.Records)
@@ -129,7 +129,7 @@ func TestSchema_BoolFieldRoundTrip(t *testing.T) {
 
 func TestSchema_InsertRejectsUndeclaredField(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text }`)
+	runStatements(t, d, `user { id: int @id name: text };`)
 
 	got := runExpectingError(t, d, `>> user {id: 1 nmae: "Matt"};`)
 
@@ -146,7 +146,7 @@ func TestSchema_InsertRejectsUndeclaredField(t *testing.T) {
 
 func TestSchema_MergePayloadRejectsUndeclaredField(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text }`, `>> user {id: 1 name: "Matt"};`)
+	runStatements(t, d, `user { id: int @id name: text };`, `>> user {id: 1 name: "Matt"};`)
 
 	got := runExpectingError(t, d, `~> user() {nickname: "M"};`)
 
@@ -158,7 +158,7 @@ func TestSchema_MergePayloadRejectsUndeclaredField(t *testing.T) {
 
 func TestSchema_OneBadFieldFailsTheWholeInsert(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text age: int }`)
+	runStatements(t, d, `user { id: int @id name: text age: int };`)
 
 	runExpectingError(t, d, `>> user {id: 1 name: "Matt" age: "x"};`)
 
@@ -167,7 +167,7 @@ func TestSchema_OneBadFieldFailsTheWholeInsert(t *testing.T) {
 
 func TestSchema_BadInsertDoesNotConsumeAutoIncrementValue(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id @auto name: text }`)
+	runStatements(t, d, `user { id: int @id @auto name: text };`)
 
 	runExpectingError(t, d, `>> user {name: 5};`)
 
@@ -180,7 +180,7 @@ func TestSchema_BadInsertDoesNotConsumeAutoIncrementValue(t *testing.T) {
 func TestSchema_BulkMergeNeverHalfApplies(t *testing.T) {
 	d := NewDatabase("test")
 	runStatements(t, d,
-		`user { id: int @id name: text age: int }`,
+		`user { id: int @id name: text age: int };`,
 		`>> user {id: 1 name: "Matt" age: 39};`,
 		`>> user {id: 2 name: "Pat" age: 40};`,
 	)
@@ -194,7 +194,7 @@ func TestSchema_BulkMergeNeverHalfApplies(t *testing.T) {
 
 func TestSchema_InvalidDeleteFilterDeletesNothing(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id }`, `>> user {id: 1};`)
+	runStatements(t, d, `user { id: int @id };`, `>> user {id: 1};`)
 
 	got := runExpectingError(t, d, `!> user(id: "1");`)
 
@@ -207,7 +207,7 @@ func TestSchema_InvalidDeleteFilterDeletesNothing(t *testing.T) {
 
 func TestSchema_NullIsNotATypeMismatchOnOptionalField(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id nickname: text @optional }`, `>> user {id: 1 nickname: null};`)
+	runStatements(t, d, `user { id: int @id nickname: text @optional };`, `>> user {id: 1 nickname: null};`)
 
 	record := d.collections["user"].records[0]
 	if _, present := record["nickname"]; present {
@@ -217,7 +217,7 @@ func TestSchema_NullIsNotATypeMismatchOnOptionalField(t *testing.T) {
 
 func TestSchema_InsertRejectsMissingRequiredField(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text }`)
+	runStatements(t, d, `user { id: int @id name: text };`)
 
 	got := runExpectingError(t, d, `>> user {id: 1};`)
 
@@ -231,7 +231,7 @@ func TestSchema_InsertRejectsMissingRequiredField(t *testing.T) {
 
 func TestSchema_InsertRejectsNullOnRequiredField(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text }`)
+	runStatements(t, d, `user { id: int @id name: text };`)
 
 	got := runExpectingError(t, d, `>> user {id: 1 name: null};`)
 
@@ -245,7 +245,7 @@ func TestSchema_InsertRejectsNullOnRequiredField(t *testing.T) {
 
 func TestSchema_InsertRejectsNullPrimaryKey(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id }`)
+	runStatements(t, d, `user { id: int @id };`)
 
 	got := runExpectingError(t, d, `>> user {id: null};`)
 
@@ -257,7 +257,7 @@ func TestSchema_InsertRejectsNullPrimaryKey(t *testing.T) {
 
 func TestSchema_InsertRejectsNullOnAutoPrimaryKey(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id @auto }`)
+	runStatements(t, d, `user { id: int @id @auto };`)
 
 	got := runExpectingError(t, d, `>> user {id: null};`)
 
@@ -270,7 +270,7 @@ func TestSchema_InsertRejectsNullOnAutoPrimaryKey(t *testing.T) {
 func TestSchema_InsertAllowsOmittedOptionalField(t *testing.T) {
 	d := NewDatabase("test")
 	runStatements(t, d,
-		`user { id: int @id name: text nickname: text @optional }`,
+		`user { id: int @id name: text nickname: text @optional };`,
 		`>> user {id: 1 name: "Matt"};`,
 	)
 
@@ -279,7 +279,7 @@ func TestSchema_InsertAllowsOmittedOptionalField(t *testing.T) {
 
 func TestSchema_AutoPrimaryKeyIsNotRequiredOnInsert(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id @auto name: text }`)
+	runStatements(t, d, `user { id: int @id @auto name: text };`)
 
 	result := runStatements(t, d, `>> user {name: "Matt"} => {*};`).(InsertResult)
 	if result.Records[0]["id"] != int64(1) {
@@ -289,7 +289,7 @@ func TestSchema_AutoPrimaryKeyIsNotRequiredOnInsert(t *testing.T) {
 
 func TestSchema_MissingRequiredFieldDoesNotConsumeAutoIncrementValue(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id @auto name: text }`)
+	runStatements(t, d, `user { id: int @id @auto name: text };`)
 
 	runExpectingError(t, d, `>> user {};`)
 
@@ -302,7 +302,7 @@ func TestSchema_MissingRequiredFieldDoesNotConsumeAutoIncrementValue(t *testing.
 func TestSchema_MergeDoesNotRequireUnnamedFields(t *testing.T) {
 	d := NewDatabase("test")
 	runStatements(t, d,
-		`user { id: int @id name: text age: int }`,
+		`user { id: int @id name: text age: int };`,
 		`>> user {id: 1 name: "Matt" age: 39};`,
 		`~> user(id: 1) {age: 40};`,
 	)
@@ -312,7 +312,7 @@ func TestSchema_MergeDoesNotRequireUnnamedFields(t *testing.T) {
 
 func TestSchema_MergeRejectsNullOnRequiredField(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text }`, `>> user {id: 1 name: "Matt"};`)
+	runStatements(t, d, `user { id: int @id name: text };`, `>> user {id: 1 name: "Matt"};`)
 
 	got := runExpectingError(t, d, `~> user() {name: null};`)
 
@@ -326,7 +326,7 @@ func TestSchema_MergeRejectsNullOnRequiredField(t *testing.T) {
 
 func TestSchema_MergeRejectsNullPrimaryKeyWithPrimaryKeyError(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text }`, `>> user {id: 1 name: "Matt"};`)
+	runStatements(t, d, `user { id: int @id name: text };`, `>> user {id: 1 name: "Matt"};`)
 
 	got := runExpectingError(t, d, `~> user() {id: null};`)
 
@@ -339,7 +339,7 @@ func TestSchema_MergeRejectsNullPrimaryKeyWithPrimaryKeyError(t *testing.T) {
 func TestSchema_MergeNullClearsOptionalField(t *testing.T) {
 	d := NewDatabase("test")
 	runStatements(t, d,
-		`user { id: int @id nickname: text @optional }`,
+		`user { id: int @id nickname: text @optional };`,
 		`>> user {id: 1 nickname: "M"};`,
 		`~> user(id: 1) {nickname: null};`,
 	)
@@ -355,7 +355,7 @@ func TestSchema_MergeNullClearsOptionalField(t *testing.T) {
 func TestSchema_OmittedAndNullAreTheSame(t *testing.T) {
 	d := NewDatabase("test")
 	runStatements(t, d,
-		`user { id: int @id nickname: text @optional }`,
+		`user { id: int @id nickname: text @optional };`,
 		`>> user {id: 1};`,
 		`>> user {id: 2 nickname: null};`,
 	)
@@ -366,12 +366,12 @@ func TestSchema_OmittedAndNullAreTheSame(t *testing.T) {
 func TestSchema_NullFilterMatchesRecordsWithoutAValue(t *testing.T) {
 	d := NewDatabase("test")
 	runStatements(t, d,
-		`user { id: int @id nickname: text @optional }`,
+		`user { id: int @id nickname: text @optional };`,
 		`>> user {id: 1};`,
 		`>> user {id: 2 nickname: "M"};`,
 	)
 
-	result := runStatements(t, d, `<< user(nickname: null) => {id}`).(ReadResult)
+	result := runStatements(t, d, `<< user(nickname: null) => {id};`).(ReadResult)
 	if len(result.Records) != 1 || result.Records[0]["id"] != int64(1) {
 		t.Fatalf("expected only record 1, got %v", result.Records)
 	}
@@ -379,7 +379,7 @@ func TestSchema_NullFilterMatchesRecordsWithoutAValue(t *testing.T) {
 
 func TestSchema_NullFilterOnRequiredFieldIsRejected(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id name: text }`)
+	runStatements(t, d, `user { id: int @id name: text };`)
 
 	got := runExpectingError(t, d, `<< user(name: null);`)
 
@@ -392,7 +392,7 @@ func TestSchema_NullFilterOnRequiredFieldIsRejected(t *testing.T) {
 func TestSchema_NullFilterWorksForDelete(t *testing.T) {
 	d := NewDatabase("test")
 	runStatements(t, d,
-		`user { id: int @id nickname: text @optional }`,
+		`user { id: int @id nickname: text @optional };`,
 		`>> user {id: 1};`,
 		`>> user {id: 2 nickname: "M"};`,
 		`!> user(nickname: null);`,
@@ -404,7 +404,7 @@ func TestSchema_NullFilterWorksForDelete(t *testing.T) {
 
 func TestSchema_ProjectionShowsNullForMissingValue(t *testing.T) {
 	d := NewDatabase("test")
-	runStatements(t, d, `user { id: int @id nickname: text @optional }`, `>> user {id: 1};`)
+	runStatements(t, d, `user { id: int @id nickname: text @optional };`, `>> user {id: 1};`)
 
 	got := runStatements(t, d, `<< user => {id, nickname};`).(ReadResult).String()
 

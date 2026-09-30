@@ -137,7 +137,7 @@ func TestParseInsert_RejectsIncompleteInsertOperator(t *testing.T) {
 
 func TestParseInsert_RejectsIncompleteWithNoRecordLiteral(t *testing.T) {
 	if _, err := ParseInsert(`>> user`); !errors.Is(err, ErrIncompleteInput) {
-		t.Fatalf("expected ErrIncompleteInput for a collection name with no record literal yet, got %v", err)
+		t.Fatalf("expected ErrIncompleteInput for a collection name with no record literal or ';' yet, got %v", err)
 	}
 }
 
@@ -229,7 +229,7 @@ func TestParseInsert_NoProjectionIsNil(t *testing.T) {
 }
 
 func TestParseInsert_ParsesProjection(t *testing.T) {
-	o, err := ParseInsert(`>> user {name: "Matt"} => {id, name}`)
+	o, err := ParseInsert(`>> user {name: "Matt"} => {id, name};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -251,7 +251,7 @@ func TestParseInsert_ParsesWildcardProjection(t *testing.T) {
 }
 
 func TestParseInsert_EmptyProjectionIsNotNil(t *testing.T) {
-	o, err := ParseInsert(`>> user {name: "Matt"} => {}`)
+	o, err := ParseInsert(`>> user {name: "Matt"} => {};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -268,7 +268,7 @@ func TestParseInsert_UnterminatedRecordIsIncomplete(t *testing.T) {
 }
 
 func TestParseInsert_RejectsWildcardCombinedWithFields(t *testing.T) {
-	for _, input := range []string{`>> user {name: "Matt"} => {*, id}`, `>> user {name: "Matt"} => {id, *}`} {
+	for _, input := range []string{`>> user {name: "Matt"} => {*, id};`, `>> user {name: "Matt"} => {id, *};`} {
 		if _, err := ParseInsert(input); err == nil {
 			t.Fatalf("expected an error for %q", input)
 		}
@@ -306,7 +306,7 @@ func TestParseInsert_DanglingAmpersandIsAnError(t *testing.T) {
 }
 
 func TestParseInsert_BatchProjectionFollowsLastRecord(t *testing.T) {
-	o, err := ParseInsert(`>> user {id: 1} & {id: 2} => {id}`)
+	o, err := ParseInsert(`>> user {id: 1} & {id: 2} => {id};`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
@@ -317,7 +317,7 @@ func TestParseInsert_BatchProjectionFollowsLastRecord(t *testing.T) {
 }
 
 func TestParseInsert_ProjectionBetweenRecordsIsAnError(t *testing.T) {
-	if _, err := ParseInsert(`>> user {id: 1} => {id} & {id: 2}`); err == nil {
+	if _, err := ParseInsert(`>> user {id: 1} => {id} & {id: 2};`); err == nil {
 		t.Fatal("expected an error for a projection between records")
 	}
 }

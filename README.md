@@ -8,9 +8,11 @@ A database written in Go, with its own query language. Still early — this READ
 go run .
 ```
 
-This starts an interactive prompt (`tango>`) backed by a single in-memory database that lives for the session. It reads a statement, parses it, runs it against that database, and prints the result (or an error). Enter starts a new line rather than submitting — the REPL keeps reading until what you've typed forms a complete statement, then submits it automatically. While a statement is still incomplete, the prompt switches to a continuation prompt (`...>`), padded to line up with `tango>`. The prompts deliberately avoid the query language's operator characters, so `tango> >> user {...}` can't be misread.
+This starts an interactive prompt (`tango>`) backed by a single in-memory database that lives for the session. It reads a statement, parses it, runs it against that database, and prints the result (or an error).
 
-While any `{` or `(` is still open, the REPL doesn't try to parse what you've typed — it just keeps reading. So a mistake partway through a multi-line statement is reported once, after you close the brackets, and the rest of the statement is discarded with it (rather than each leftover line being read as a statement of its own):
+**Every statement ends with `;`.** That's the one rule for when something runs: Enter just starts a new line, and the REPL keeps reading (however many lines, blank ones included) until it sees the `;`. While a statement is still in progress, the prompt switches to a continuation prompt (`...>`), padded to line up with `tango>`. If you're sitting at `...>` and expected something to happen, you've probably left off the `;`. One statement at a time: anything after the `;` on the same line is an error. The prompts deliberately avoid the query language's operator characters, so `tango> >> user {...}` can't be misread.
+
+Nothing is parsed until the statement is finished, so a mistake partway through a multi-line statement is reported once, after the `;`, and the rest of the statement is discarded with it (rather than each leftover line being read as a statement of its own):
 
 ```
 tango> >> user {
@@ -22,9 +24,9 @@ error: expected a value, got "Matt"
 tango>
 ```
 
-Brackets inside quoted strings don't count, and an unmatched closing bracket is reported right away.
+A `;` inside a quoted string or inside open brackets doesn't end the statement. An unmatched closing bracket is reported right away.
 
-Exit with Ctrl+D, or by typing `exit` (case-insensitive) on its own. `exit` is a REPL command, not part of the query language — it isn't run against the database.
+Exit with Ctrl+D, or by typing `exit` (case-insensitive) on its own — no `;`, since `exit` is a REPL command, not part of the query language; it isn't run against the database.
 
 ## Declaring a collection
 
@@ -34,16 +36,16 @@ A collection is a named block of typed fields:
 user {
   id: int @id
   name: text
-}
+};
 ```
 
-Type it into the REPL across as many lines as you like — it submits as soon as the closing `}` is read:
+Type it into the REPL across as many lines as you like — like every statement, it runs once the `;` is read:
 
 ```
 tango> user {
   ...>   id: int @id
   ...>   name: text
-  ...> }
+  ...> };
 user {
   id: int @id
   name: text
@@ -57,7 +59,7 @@ user {
 **`@auto`** makes an `int` field auto-increment, starting at `1`. It's most often used on the primary key, but works on any `int` field:
 
 ```
-tango> user { id: int @id @auto name: text }
+tango> user { id: int @id @auto name: text };
 user {
   id: int @id @auto
   name: text
@@ -67,10 +69,10 @@ user {
 With `@auto`, insert must *not* supply that field — the database assigns it. Ask for it back with `=> {id}` (see [Inserting a record](#inserting-a-record)):
 
 ```
-tango> >> user {name: "Matt"} => {id}
+tango> >> user {name: "Matt"} => {id};
 id
 1
-tango> >> user {name: "Sam"} => {id}
+tango> >> user {name: "Sam"} => {id};
 id
 2
 tango> >> user {id: 99, name: "nope"};
@@ -80,16 +82,16 @@ error: field "id" is auto-increment and must not be supplied for collection "use
 `@auto` and `@id` are independent: `@id` is the record's identity, `@auto` means the database assigns the value. So a collection can use a key you choose alongside a generated sequence number, and a collection can have more than one `@auto` field — each keeps its own counter:
 
 ```
-tango> ticket { code: text @id number: int @auto title: text }
+tango> ticket { code: text @id number: int @auto title: text };
 ticket {
   code: text @id
   number: int @auto
   title: text
 }
-tango> >> ticket {code: "A" title: "first"} => {code number}
+tango> >> ticket {code: "A" title: "first"} => {code number};
 code  number
 A     1
-tango> >> ticket {code: "B" title: "second"} => {code number}
+tango> >> ticket {code: "B" title: "second"} => {code number};
 code  number
 B     2
 ```
@@ -106,7 +108,7 @@ That's what keeps the values unique without needing an index. Counter values are
 A collection can also be written on a single line:
 
 ```
-tango> user { name: text }
+tango> user { name: text };
 user {
   name: text
 }
@@ -122,12 +124,10 @@ tango> >> user {id: 1, name: "Matt"};
 An insert returns a bare count — `1` — the same "count by default" rule read, delete, and merge follow (and what a batch insert will report as more than one). To get the stored record back, add a projection with `=>`; it reflects what was actually stored, including any values the database assigned:
 
 ```
-tango> >> user {id: 2, name: "Sam"} => {*}
+tango> >> user {id: 2, name: "Sam"} => {*};
 id  name
 2   Sam
 ```
-
-Because a `=>` can follow the record, a bare insert needs a `;` to tell the REPL it's finished — without one, it waits for more input, the same as delete and merge.
 
 The record literal comes directly after the collection name — no `=>` before it. That keeps `=>`'s meaning consistent across the whole language: it always means "the shape of what comes back," the same job it does in a read's projection. `(...)`, in turn, always means "identify an existing record" (a read/delete/merge filter) — never "here are values for a new one." Insert has no existing record to identify, so it doesn't use `(...)` at all.
 
@@ -138,7 +138,7 @@ Field values can be a quoted string (`"Matt"`, with `\"` and `\\` supported as e
 Every value must match its field's declared type **exactly**, and a literal's type comes from how it's written: `39` is an `int`, `9.99` is a `float`, `"Matt"` is `text`, `true` is a `bool`. There are no conversions — not even integer to float, so a `float` field takes `10.0`, never `10`:
 
 ```
-tango> item { id: int @id price: float }
+tango> item { id: int @id price: float };
 item {
   id: int @id
   price: float
@@ -176,7 +176,7 @@ error: field "name" is required for collection "user"
 `@optional` marks a field that's allowed to have no value. "No value" is written `null` (unquoted; `"null"` is just text), and leaving an optional field out of an insert means exactly the same thing as writing `null` for it:
 
 ```
-tango> profile { id: int @id name: text nickname: text @optional }
+tango> profile { id: int @id name: text nickname: text @optional };
 profile {
   id: int @id
   name: text
@@ -208,7 +208,7 @@ error: field "name" is required and cannot be null
 A primary key always has a value, so `@id` and `@optional` together are an error:
 
 ```
-tango> x { id: int @id @optional }
+tango> x { id: int @id @optional };
 error: @id field "id" cannot be @optional
 ```
 
@@ -256,7 +256,7 @@ A trailing `&` means more records are coming, so a batch can span lines. A `=>` 
 
 ```
 tango> >> user {id: 3 name: "Pat"} &
-  ...> {id: 4 name: "Ann"} => {id name}
+  ...> {id: 4 name: "Ann"} => {id name};
 id  name
 3   Pat
 4   Ann
@@ -287,7 +287,7 @@ tango> user {
   ...>     city: text
   ...>     zip: text @optional
   ...>   } @optional
-  ...> }
+  ...> };
 user {
   address: {
     city: text
@@ -335,7 +335,7 @@ error: filtering on embedded object field "address" is not supported yet
 ## Querying records
 
 ```
-tango> << user(name: "Matt") => {id, name}
+tango> << user(name: "Matt") => {id, name};
 id  name
 1   Matt
 ```
@@ -343,7 +343,7 @@ id  name
 The filter in `(...)` matches on equality, and can hold zero or more comma-separated `field: value` conditions — all of them must match (there's no `or` yet). An empty filter (`()`) matches every record in the collection:
 
 ```
-tango> << user() => {id, name}
+tango> << user() => {id, name};
 id  name
 1   Matt
 2   Sam
@@ -352,14 +352,14 @@ id  name
 The projection (`=> {...}`) picks which fields to show, and controls both the columns and their order in the printed table. Filtering or projecting on a field the collection doesn't declare is an error, same as an unknown collection:
 
 ```
-tango> << user(nope: 1) => {id}
+tango> << user(nope: 1) => {id};
 error: field "nope" not found in schema for collection "user"
 ```
 
 A read that matches nothing prints a plain message rather than an empty table:
 
 ```
-tango> << user(id: 99) => {id}
+tango> << user(id: 99) => {id};
 no records found
 ```
 
@@ -368,7 +368,7 @@ The filter parens are optional when a projection follows directly — `<< user =
 **Wildcard** — `*` alone in the projection means every field currently in the schema, without having to name them:
 
 ```
-tango> << user(name: "Matt") => {*}
+tango> << user(name: "Matt") => {*};
 id  name
 1   Matt
 ```
@@ -384,32 +384,18 @@ tango> << user(id: 1);
 
 This is the same "count by default, `=>` opts into records" convention delete and merge use below — `<< user(id: 1) => {*};` is the explicit way to get the record itself back instead of just knowing it exists.
 
-### Selecting everything
+### Reading everything
 
-`<< collection` with no filter or projection is a valid statement on its own — but it's *also* a valid prefix of a longer one (`<< user(id: 1) => {...}`). Since the REPL submits the moment something parses successfully, it needs to know which you mean. Structurally, the safe default is to keep waiting — a bare `<< user` alone assumes more might still be coming, the same as any other unclosed statement:
-
-```
-tango> << user
-  ...> 
-```
-
-Add `;` to say "no, that's everything" explicitly — it returns a count of every record in the collection:
+With no filter at all, a read covers the whole collection — a count by default, or every record with `=> {*}`:
 
 ```
 tango> << user;
 2
-```
-
-Combine it with `=> {*}` to get the records themselves, not just how many there are:
-
-```
 tango> << user => {*};
 id  name
 1   Matt
 2   Sam
 ```
-
-`;` also works after a filter with no projection (`<< user(name: "Matt");`), and is harmlessly tolerated as an optional trailing marker at the end of any statement (`user { id: int };`). It's required wherever a statement could still continue with `=>` — a bare `<< user`, and any insert, delete, or merge without a projection.
 
 ## Deleting records
 

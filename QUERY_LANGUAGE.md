@@ -20,7 +20,7 @@ user {
   id: int @id
   name: text
   age: int
-}
+};
 ```
 
 **Types:** `INT`, `FLOAT`, `TEXT`, `BOOL`
@@ -40,7 +40,7 @@ user {
   id: int @id
   name: text
   nickname: text @optional
-}
+};
 ```
 
 ### Nested shapes: embedded vs. related
@@ -52,7 +52,7 @@ user {
   id: INT @id
   name: TEXT
   dimensions: { width: FLOAT, height: FLOAT }   // pure shape — only reachable via user.dimensions
-}
+};
 ```
 
 **Implemented so far:** declaring embedded blocks (nestable, optionally `@optional` as a whole), inserting them as nested record literals with recursive validation, and projecting them as dotted columns (`address.city`). Filtering on embedded values (dotted paths, and subset matching on a nested filter like `(address: {city: "MSP"})`) and merging into them come next. `@id` and `@auto` aren't allowed inside an embedded block for now, since it has no identity of its own; they'll likely return for `@collection` blocks, which do.
@@ -64,7 +64,7 @@ user {
   id: INT @id
   name: TEXT
   address: { @collection: address, id: INT @id, street: TEXT, city: TEXT }
-}
+};
 ```
 
 This single declaration wires up:
@@ -81,7 +81,7 @@ user {
   id: INT @id
   name: TEXT
   address: { @collection: address, id: INT @id, street: TEXT, city: TEXT }[]
-}
+};
 ```
 
 The field name stays singular either way — cardinality lives in `[]`, never in the name. The "many" side always holds the actual reference (`address.user` is always singular); `user.address` as a list is resolved through `address`'s reverse index, not a stored list on `user`.
@@ -94,12 +94,14 @@ Neither side can hold a single clean reference, so it needs a real join collecti
 user_tag {
   user: { @collection: user, id: INT @id }
   tag: { @collection: tag, id: INT @id }
-}
+};
 ```
 
 ---
 
 ## Statements
+
+**Every statement ends with `;`**, including collection definitions and statements with a `=>` projection. A statement is complete at its first `;` outside any brackets; until then it isn't parsed, however many lines it spans. One statement is accepted at a time: anything after the `;` is an error.
 
 Four kinds, distinguished by leading symbol/keyword:
 
@@ -113,20 +115,20 @@ Four kinds, distinguished by leading symbol/keyword:
 ### Read
 
 ```
-<< collection(filter) => projection
+<< collection(filter) => projection;
 ```
 
 **Filter** — `(field: value)` pairs, dotted paths allowed for nested fields:
 
 ```
-<< user(id: 1) => {id, name, age}
-<< user(address.city: "Minneapolis") => {id, name}
+<< user(id: 1) => {id, name, age};
+<< user(address.city: "Minneapolis") => {id, name};
 ```
 
 **Wildcard** — `*` alone in the projection means every field currently in the schema. It must be the sole content of the braces; combining it with named fields is a parse error:
 
 ```
-<< user(id: 1) => {*}
+<< user(id: 1) => {*};
 ```
 
 **Omitting the projection entirely returns a count, not records** — `<< user(id: 1)` (with no `=>` at all) reports how many records matched, without materializing any of them. This is the same "count by default, `=>` opts into records" convention delete and merge already use; `=> {*}` is the explicit way to get everything back instead.
@@ -134,19 +136,19 @@ Four kinds, distinguished by leading symbol/keyword:
 **Bound variables** — bind a name to reach into nested structure explicitly in the projection:
 
 ```
-<< user(address.city: "Minneapolis") => u => {id: u.id, name: u.name, street: u.address.street}
+<< user(address.city: "Minneapolis") => u => {id: u.id, name: u.name, street: u.address.street};
 ```
 
 **Querying a related collection directly**, navigating back up via its reverse reference:
 
 ```
-<< address(city: "Minneapolis") => a => {a.street, a.city, owner: a.user.name}
+<< address(city: "Minneapolis") => a => {a.street, a.city, owner: a.user.name};
 ```
 
 **Pipeline stages** — post-processing after the match, separate from filtering:
 
 ```
-<< user(address.city: "Minneapolis") => {id, name} | order(name) | limit(20)
+<< user(address.city: "Minneapolis") => {id, name} | order(name) | limit(20);
 ```
 
 ### Insert
@@ -169,12 +171,12 @@ Batch form — separate with &:
 
 A batch is all-or-nothing: every record (and duplicate keys within the batch) is validated before any is stored, and every problem found is reported, each prefixed with its record's position (`record 2: ...`). A trailing `&` means more records follow. A `=>` projection comes after the last record and returns one row per record, in input order.
 
-**Return value** follows the same count-vs-`RETURNING` convention as delete and merge: with no `=>`, an insert returns a bare-integer count (`1`, or the number of records in a batch). With `=>`, it also returns the stored records, limited to the projected fields and including any values the database assigned. Because `=>` may follow, a bare insert needs a `;` to be complete.
+**Return value** follows the same count-vs-`RETURNING` convention as delete and merge: with no `=>`, an insert returns a bare-integer count (`1`, or the number of records in a batch). With `=>`, it also returns the stored records, limited to the projected fields and including any values the database assigned.
 
 ```
 >> user {name: "Matt", age: 39};              -- returns 1 (just the count)
->> user {name: "Matt", age: 39} => {id}       -- returns the generated id
->> user {name: "Matt", age: 39} => {*}        -- returns the stored record, every field
+>> user {name: "Matt", age: 39} => {id};      -- returns the generated id
+>> user {name: "Matt", age: 39} => {*};       -- returns the stored record, every field
 ```
 
 ### Merge
@@ -184,13 +186,13 @@ Bulk conditional update — merge the payload's fields into every record matchin
 The payload comes directly after the filter, no `=>` in front of it — same grammar shape as insert, for the same reason (`=>` only ever means "shape of what comes back"):
 
 ```
-~> user(id: 1) {name: "Matt", age: 39}
+~> user(id: 1) {name: "Matt", age: 39};
 ```
 
 Like delete, the filter parens are **mandatory**, even when empty — merge is a bulk mutating operation, so there's no bare `~> user {...}` shorthand that would apply to a whole collection by omission:
 
 ```
-~> user() {age: 41}   -- deliberately matches (and updates) everything
+~> user() {age: 41};  -- deliberately matches (and updates) everything
 ```
 
 The update is a **partial merge**, not a full replace — only the fields named in the payload change; anything else already on a matched record is left untouched. Every record matching the filter is updated (no attempt to detect or reject multiple matches — the filter means the same thing here as it does for read and delete). The payload must not include the collection's declared primary key field, whether or not that field is `@auto` — the primary key is something you filter *on*, never something a merge payload sets, since a bulk update could otherwise assign the same key value to more than one row at once. The same goes for any `@auto` field.
@@ -198,9 +200,9 @@ The update is a **partial merge**, not a full replace — only the fields named 
 Return value follows the same count-vs-`RETURNING` convention as delete — and the count is a bare integer, no wording around it:
 
 ```
-~> user(id: 1) {name: "Matt"}                  -- returns 1 (just the count)
-~> user(id: 1) {name: "Matt"} => {id, name}    -- returns the updated record(s) too
-~> user(id: 1) {name: "Matt"} => {*}           -- returns the updated record(s), every field
+~> user(id: 1) {name: "Matt"};                 -- returns 1 (just the count)
+~> user(id: 1) {name: "Matt"} => {id, name};   -- returns the updated record(s) too
+~> user(id: 1) {name: "Matt"} => {*};          -- returns the updated record(s), every field
 ```
 
 ### Delete
@@ -208,22 +210,22 @@ Return value follows the same count-vs-`RETURNING` convention as delete — and 
 Simple form — sugar for a match-then-delete pipeline. Unlike read, the filter parens are **mandatory**, even when empty — there's no bare `!> user` shorthand for "delete everything." The risk isn't confusing which operator was typed (the Philosophy section's `!>` keyboard-distance argument covers that); it's the classic "forgot the filter" mistake, which persists no matter how distinct the operator is. Requiring `()` — even empty — forces the filter position to be visibly acknowledged rather than silently skipped:
 
 ```
-!> user(id: 1)
-!> user()          -- deliberately matches (and deletes) everything
+!> user(id: 1);
+!> user();         -- deliberately matches (and deletes) everything
 ```
 
 Full pipeline form — what the sugar expands to, and the escape hatch for conditions too complex for a bare filter:
 
 ```
-<< user(address.city: "Minneapolis") => u | delete(u)
+<< user(address.city: "Minneapolis") => u | delete(u);
 ```
 
 Return what was deleted, same `=>` convention as insert — but unlike insert, this is genuinely optional either way: with no `=>`, delete returns only a bare-integer count (Postgres plain-`DELETE` style); with `=>`, it also returns the deleted records, limited to the projected fields (Postgres `DELETE ... RETURNING` style):
 
 ```
-!> user(id: 1)                  -- returns 1 (just the count)
-!> user(id: 1) => {id, name}    -- returns the deleted record(s) too
-!> user(id: 1) => {*}           -- returns the deleted record(s), every field
+!> user(id: 1);                 -- returns 1 (just the count)
+!> user(id: 1) => {id, name};   -- returns the deleted record(s) too
+!> user(id: 1) => {*};          -- returns the deleted record(s), every field
 ```
 
 ---

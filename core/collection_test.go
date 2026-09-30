@@ -97,7 +97,7 @@ func TestCollection_StringWithOptional(t *testing.T) {
 
 func TestCollection_StringWithEmbeddedBlocks(t *testing.T) {
 	d := NewDatabase("test")
-	op, err := Parse(`user { id: int @id address: { street: text geo: { lat: float } @optional } @optional }`)
+	op, err := Parse(`user { id: int @id address: { street: text geo: { lat: float } @optional } @optional };`)
 	if err != nil {
 		t.Fatalf("Failed to parse, err: %v", err)
 	}
