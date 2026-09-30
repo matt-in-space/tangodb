@@ -24,7 +24,7 @@ func (db *Database) merge(collectionName string, filter map[string]any, payload 
 		return nil, fmt.Errorf("collection %q does not exist", collectionName)
 	}
 
-	if err := validateFields(collection, filter); err != nil {
+	if err := validateFilter(collection, filter); err != nil {
 		return nil, err
 	}
 
@@ -42,19 +42,17 @@ func (db *Database) merge(collectionName string, filter map[string]any, payload 
 		}
 	}
 
-	if err := validateFields(collection, payload); err != nil {
+	if err := validatePayload(collection, payload); err != nil {
 		return nil, err
 	}
 
 	wantRecords := projection != nil
 
 	if wantRecords {
-		projection = expandProjection(collection, projection)
-
-		for _, field := range projection {
-			if _, ok := collection.data[field]; !ok {
-				return nil, fmt.Errorf("field %q not found in schema for collection %q", field, collectionName)
-			}
+		var problems []error
+		projection, problems = resolveProjection(collection, projection)
+		if len(problems) > 0 {
+			return nil, problems[0]
 		}
 	}
 

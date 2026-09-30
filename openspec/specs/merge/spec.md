@@ -90,3 +90,10 @@ The system SHALL reject, with an error and no mutation, any merge whose payload 
 #### Scenario: Filtering on an auto field
 - **WHEN** collection `ticket { code: text @id number: int @auto title: text @optional }` holds `{code: "A" number: 1}` and a client sends `~> ticket(number: 1) {title: "hi"};`
 - **THEN** the system updates that record's `title`
+
+### Requirement: Merge payload cannot set an embedded object yet
+The system SHALL reject, with an error and no mutation, a merge whose payload sets an embedded object field.
+
+#### Scenario: Payload sets an object field
+- **WHEN** collection `user { id: int @id address: { city: text } }` holds a record and a client sends `~> user(id: 1) {address: {city: "MSP"}};`
+- **THEN** the system returns `merge payload cannot set embedded object field "address" yet` and changes no record

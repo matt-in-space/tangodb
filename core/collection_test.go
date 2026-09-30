@@ -94,3 +94,30 @@ func TestCollection_StringWithOptional(t *testing.T) {
 		t.Fatalf("expected:\n%s\ngot:\n%s", want, got)
 	}
 }
+
+func TestCollection_StringWithEmbeddedBlocks(t *testing.T) {
+	d := NewDatabase("test")
+	op, err := Parse(`user { id: int @id address: { street: text geo: { lat: float } @optional } @optional }`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	result, err := d.Run(op)
+	if err != nil {
+		t.Fatalf("Failed to define collection, err: %v", err)
+	}
+
+	want := "user {\n" +
+		"  address: {\n" +
+		"    geo: {\n" +
+		"      lat: float\n" +
+		"    } @optional\n" +
+		"    street: text\n" +
+		"  } @optional\n" +
+		"  id: int @id\n" +
+		"}"
+
+	if got := result.(DefineCollectionResult).String(); got != want {
+		t.Fatalf("expected:\n%s\ngot:\n%s", want, got)
+	}
+}

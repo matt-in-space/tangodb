@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // ErrIncompleteInput signals that parsing ran out of tokens at a point
@@ -136,4 +137,20 @@ func hasUnclosedBrackets(tokens []token) bool {
 	}
 
 	return depth > 0
+}
+
+// expectPlainName reads a name being declared or written, a collection name
+// or a field name, where a dotted path (address.city) isn't allowed: a path
+// names a field inside an embedded object, it isn't a name of its own.
+func (p *parser) expectPlainName(what string) (string, error) {
+	name, err := p.expectIdent()
+	if err != nil {
+		return "", err
+	}
+
+	if strings.Contains(name, ".") {
+		return "", fmt.Errorf("%s name %q cannot contain \".\"", what, name)
+	}
+
+	return name, nil
 }

@@ -23,7 +23,7 @@ func (p *parser) parseDelete() (Operation, error) {
 		return nil, err
 	}
 
-	collectionName, err := p.expectIdent()
+	collectionName, err := p.expectPlainName("collection")
 	if err != nil {
 		return nil, err
 	}

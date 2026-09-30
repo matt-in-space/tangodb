@@ -62,12 +62,10 @@ func (db *Database) insert(collectionName string, records []Entity, projection [
 	wantRecords := projection != nil
 
 	if wantRecords {
-		projection = expandProjection(collection, projection)
-
-		for _, field := range projection {
-			if _, ok := collection.data[field]; !ok {
-				problems = append(problems, fmt.Sprintf("field %q not found in schema for collection %q", field, collectionName))
-			}
+		var projectionProblems []error
+		projection, projectionProblems = resolveProjection(collection, projection)
+		for _, err := range projectionProblems {
+			problems = append(problems, err.Error())
 		}
 	}
 
@@ -83,12 +81,7 @@ func (db *Database) insert(collectionName string, records []Entity, projection [
 	// advance only now, so a failed insert never consumes a value, and auto
 	// values follow the order the records were written in.
 	for _, record := range records {
-		// A null value is stored as an absent field, so "no value" has one representation.
-		for field, value := range record {
-			if value == nil {
-				delete(record, field)
-			}
-		}
+		stripNulls(record)
 
 		for _, field := range collection.sortedAutoFields() {
 			record[field] = collection.autoCounters[field]
@@ -116,4 +109,18 @@ func (db *Database) insert(collectionName string, records []Entity, projection [
 
 func (r InsertResult) String() string {
 	return renderCountOrTable(r.Count, r.Projection, r.Records)
+}
+
+// stripNulls removes null values from a record and from every embedded
+// object inside it, so "no value" is stored one way at every depth: as an
+// absent field.
+func stripNulls(record Entity) {
+	for field, value := range record {
+		switch v := value.(type) {
+		case nil:
+			delete(record, field)
+		case Entity:
+			stripNulls(v)
+		}
+	}
 }

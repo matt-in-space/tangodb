@@ -73,3 +73,41 @@ func TestParse_BalancedMistakeIsReported(t *testing.T) {
 		t.Fatalf("expected the value error, got %v", err)
 	}
 }
+
+func TestLex_DottedPathIsOneIdentifier(t *testing.T) {
+	tokens, err := lex(`address.geo.lat 9.99`)
+	if err != nil {
+		t.Fatalf("Failed to lex, err: %v", err)
+	}
+
+	if tokens[0].kind != tokenIdent || tokens[0].value != "address.geo.lat" {
+		t.Fatalf("expected the identifier address.geo.lat, got %+v", tokens[0])
+	}
+
+	if tokens[1].kind != tokenNumber || tokens[1].value != "9.99" {
+		t.Fatalf("expected the number 9.99, got %+v", tokens[1])
+	}
+}
+
+func TestLex_TrailingDotIsNotPartOfAName(t *testing.T) {
+	if _, err := lex(`address.`); err == nil {
+		t.Fatal("expected an error for a trailing dot")
+	}
+}
+
+func TestParse_RejectsDottedNamesWhereNamesAreDeclaredOrWritten(t *testing.T) {
+	cases := map[string]string{
+		`user { address.city: text }`:      `field name "address.city" cannot contain "."`,
+		`user.x { id: int }`:               `collection name "user.x" cannot contain "."`,
+		`>> user {address.city: "MSP"};`:   `field name "address.city" cannot contain "."`,
+		`~> user() {address.city: "MSP"};`: `field name "address.city" cannot contain "."`,
+		`<< user.address;`:                 `collection name "user.address" cannot contain "."`,
+	}
+
+	for input, want := range cases {
+		_, err := Parse(input)
+		if err == nil || err.Error() != want {
+			t.Fatalf("for %q expected error %q, got %v", input, want, err)
+		}
+	}
+}

@@ -274,6 +274,64 @@ error: 3 problems, nothing inserted:
 
 Records in a batch can differ in which optional fields they supply, and `@auto` values are assigned in input order, only once the whole batch is valid.
 
+## Embedded objects
+
+A field's type can be a block of fields of its own: an **embedded object**, stored as part of its parent record. Blocks can nest, and a whole block can be `@optional`:
+
+```
+tango> user {
+  ...>   id: int @id
+  ...>   name: text
+  ...>   address: {
+  ...>     street: text
+  ...>     city: text
+  ...>     zip: text @optional
+  ...>   } @optional
+  ...> }
+user {
+  address: {
+    city: text
+    street: text
+    zip: text @optional
+  } @optional
+  id: int @id
+  name: text
+}
+```
+
+An embedded object has no identity of its own, so `@id` and `@auto` aren't allowed inside a block (`@id is not allowed inside an embedded block (field "address.id")`). They may come back when related collections (`@collection`) do.
+
+Insert an object as a nested record literal. Everything inside is validated with the same rules as top-level fields, and problems name the full dotted path. Required fields inside an optional block are only checked when the block is there:
+
+```
+tango> >> user {id: 1 name: "Matt" address: {street: "1 Main" city: "MSP"}} & {id: 2 name: "Sam"};
+2
+tango> >> user {id: 3 name: "Pat" address: {city: 5}};
+error: 2 problems, nothing inserted:
+  field "address.city": expected text, got int
+  field "address.street" is required for collection "user"
+```
+
+In a table, an object is **flattened into dotted columns**. `{*}` lists every leaf field, naming an object (`=> {address}`) lists its fields, and a dotted path (`=> {address.city}`) is a column of its own. A field with no value, including every field of an absent optional object, shows `null`:
+
+```
+tango> << user => {*};
+address.city  address.street  address.zip  id  name
+MSP           1 Main          null         1   Matt
+null          null            null         2   Sam
+tango> << user => {name address.city};
+name  address.city
+Matt  MSP
+Sam   null
+```
+
+**Not supported yet:** filtering on an embedded object, by the object or by a dotted path, and merge payloads that set an object field. Both are errors rather than wrong results:
+
+```
+tango> << user(address.city: "MSP");
+error: filtering on embedded object field "address" is not supported yet
+```
+
 ## Querying records
 
 ```
@@ -444,4 +502,4 @@ id  name
 
 ## Status
 
-The REPL currently supports defining a collection, inserting flat records, one at a time or in `&` batches (a count by default, or the stored records with `=>`), reading records back with a basic equality filter and projection (a `*` wildcard for every field, or omit the projection entirely for just a count), deleting records with a mandatory filter and the same count-vs-returning shape, and merging (bulk partial-updating) records the same way. Not yet supported: nested/embedded values (in records, filters, or projections), and pipeline stages like `order`/`limit` — see `QUERY_LANGUAGE.md` for the full target language.
+The REPL currently supports defining a collection, inserting records, including embedded objects, one at a time or in `&` batches (a count by default, or the stored records with `=>`), reading records back with a basic equality filter and projection (a `*` wildcard for every field, dotted columns for embedded objects, or omit the projection entirely for just a count), deleting records with a mandatory filter and the same count-vs-returning shape, and merging (bulk partial-updating) records the same way. Not yet supported: filtering on or merging into embedded objects, related collections (`@collection`), and pipeline stages like `order`/`limit` — see `QUERY_LANGUAGE.md` for the full target language.

@@ -162,6 +162,11 @@ func lex(input string) ([]token, error) {
 			start := i
 			for i < len(runes) && isIdentRune(runes[i]) {
 				i++
+				// A dot followed by another name continues a dotted path
+				// into an embedded object, e.g. address.city.
+				if i+1 < len(runes) && runes[i] == '.' && isIdentStartRune(runes[i+1]) {
+					i++
+				}
 			}
 			tokens = append(tokens, token{kind: tokenIdent, value: string(runes[start:i])})
 

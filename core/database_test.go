@@ -173,3 +173,23 @@ func TestDatabaseRun_DefineCollectionRejectsOptionalPrimaryKey(t *testing.T) {
 		t.Fatal("expected no collection to be defined")
 	}
 }
+
+func TestDatabaseRun_DefineCollectionChecksEmbeddedSchemas(t *testing.T) {
+	cases := []DefineCollectionOperation{
+		{Name: "user", Data: map[string]DataType{"address": TypeObject}},
+		{Name: "user", Data: map[string]DataType{"name": TypeText}, Objects: map[string]*Schema{"name": {Data: map[string]DataType{}}}},
+		{Name: "user", Data: map[string]DataType{"address": TypeObject}, Objects: map[string]*Schema{
+			"address": {Data: map[string]DataType{"city": TypeText}, Optional: map[string]bool{"zip": true}},
+		}},
+		{Name: "user", Data: map[string]DataType{"address": TypeObject}, PrimaryKey: "address", Objects: map[string]*Schema{
+			"address": {Data: map[string]DataType{"city": TypeText}},
+		}},
+	}
+
+	for i, op := range cases {
+		d := NewDatabase("test")
+		if _, err := d.Run(op); err == nil {
+			t.Fatalf("case %d: expected an error", i)
+		}
+	}
+}

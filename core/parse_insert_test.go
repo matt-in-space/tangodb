@@ -321,3 +321,23 @@ func TestParseInsert_ProjectionBetweenRecordsIsAnError(t *testing.T) {
 		t.Fatal("expected an error for a projection between records")
 	}
 }
+
+func TestParseInsert_ParsesNestedRecord(t *testing.T) {
+	o, err := ParseInsert(`>> user {id: 1 address: {street: "1 Main" geo: {lat: 44.9}}};`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	address, ok := o.Records[0]["address"].(Entity)
+	if !ok {
+		t.Fatalf("expected address to be a nested record, got %T", o.Records[0]["address"])
+	}
+
+	if address["street"] != "1 Main" {
+		t.Fatalf("expected street %q, got %v", "1 Main", address["street"])
+	}
+
+	if address["geo"].(Entity)["lat"] != 44.9 {
+		t.Fatalf("expected lat 44.9, got %v", address["geo"])
+	}
+}

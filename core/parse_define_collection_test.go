@@ -275,3 +275,52 @@ func TestParseDefineCollection_RejectsOptionalID(t *testing.T) {
 		}
 	}
 }
+
+func TestParseDefineCollection_ParsesEmbeddedBlock(t *testing.T) {
+	o, err := ParseDefineCollection(`user { id: int @id address: { street: text city: text } }`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if o.Data["address"] != TypeObject {
+		t.Fatalf("expected address to be an object, got %v", o.Data["address"])
+	}
+
+	address := o.Objects["address"]
+	if address == nil || address.Data["street"] != TypeText || address.Data["city"] != TypeText {
+		t.Fatalf("expected address to hold street and city, got %+v", address)
+	}
+}
+
+func TestParseDefineCollection_ParsesNestedBlocksAndOptional(t *testing.T) {
+	o, err := ParseDefineCollection(`user { id: int @id address: { city: text geo: { lat: float lng: float } @optional } @optional }`)
+	if err != nil {
+		t.Fatalf("Failed to parse, err: %v", err)
+	}
+
+	if !o.Optional["address"] {
+		t.Fatal("expected address to be optional")
+	}
+
+	address := o.Objects["address"]
+	if !address.Optional["geo"] || address.Objects["geo"].Data["lat"] != TypeFloat {
+		t.Fatalf("expected an optional geo block with lat, got %+v", address)
+	}
+}
+
+func TestParseDefineCollection_RejectsIdentityInsideBlock(t *testing.T) {
+	cases := map[string]string{
+		`user { id: int @id address: { id: int @id } }`:                    `@id is not allowed inside an embedded block (field "address.id")`,
+		`user { id: int @id address: { n: int @auto } }`:                   `@auto is not allowed inside an embedded block (field "address.n")`,
+		`user { id: int @id a: { b: { c: int @id } } }`:                    `@id is not allowed inside an embedded block (field "a.b.c")`,
+		`user { id: int @id address: { city: text } @id }`:                 `only @optional is allowed on an embedded block (field "address")`,
+		`user { id: int @id address: { city: text @optional @optional } }`: `duplicate @optional annotation on field "address.city"`,
+	}
+
+	for input, want := range cases {
+		_, err := ParseDefineCollection(input)
+		if err == nil || err.Error() != want {
+			t.Fatalf("for %q expected error %q, got %v", input, want, err)
+		}
+	}
+}

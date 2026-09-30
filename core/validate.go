@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 // validateValue reports whether value's runtime type matches dataType exactly.
@@ -33,42 +34,125 @@ func validateValue(dataType DataType, value any) error {
 // in sorted order and the first problem is returned, so the reported error is
 // deterministic.
 func validateFields(collection *Collection, fields map[string]any) error {
+	root := collection.rootSchema()
+
 	for _, name := range sortedKeys(fields) {
-		if err := fieldProblem(collection, name, fields[name]); err != nil {
-			return err
+		if problems := valueProblems(collection.name, root, "", name, fields[name]); len(problems) > 0 {
+			return problems[0]
 		}
 	}
 
 	return nil
 }
 
-// fieldProblem checks one field against the schema: it must be declared, a
-// null is only allowed on an optional field, and any other value must match
-// the declared type exactly.
-func fieldProblem(collection *Collection, name string, value any) error {
-	dataType, ok := collection.data[name]
+// validateFilter checks a read, delete, or merge filter. Filtering on an
+// embedded object, whether by the object itself or a dotted path into it,
+// isn't supported yet, so it's rejected before any comparison is made (two
+// objects can't be compared for equality directly).
+func validateFilter(collection *Collection, filter map[string]any) error {
+	for _, key := range sortedKeys(filter) {
+		top, _, _ := strings.Cut(key, ".")
+		if collection.data[top] == TypeObject {
+			return fmt.Errorf("filtering on embedded object field %q is not supported yet", top)
+		}
+	}
+
+	return validateFields(collection, filter)
+}
+
+// validatePayload checks a merge payload. Setting an embedded object isn't
+// supported yet: without deep merge, it would silently replace the whole
+// object.
+func validatePayload(collection *Collection, payload map[string]any) error {
+	for _, key := range sortedKeys(payload) {
+		if collection.data[key] == TypeObject {
+			return fmt.Errorf("merge payload cannot set embedded object field %q yet", key)
+		}
+	}
+
+	return validateFields(collection, payload)
+}
+
+// valueProblems checks the value of one field of a block against the block's
+// schema, and returns every problem found. path is the block's dotted prefix
+// ("" at the top level, "address." inside), so each problem names the field's
+// full path. An object value is checked field by field against its block.
+func valueProblems(collectionName string, schema *Schema, path, name string, value any) []error {
+	fullName := path + name
+
+	dataType, ok := schema.Data[name]
 	if !ok {
-		return fmt.Errorf("field %q not found in schema for collection %q", name, collection.name)
+		return []error{fmt.Errorf("field %q not found in schema for collection %q", fullName, collectionName)}
 	}
 
 	if value == nil {
-		if !collection.optional[name] {
-			return fmt.Errorf("field %q is required and cannot be null", name)
+		if !schema.Optional[name] {
+			return []error{fmt.Errorf("field %q is required and cannot be null", fullName)}
 		}
 		return nil
 	}
 
+	if dataType == TypeObject {
+		object, ok := value.(Entity)
+		if !ok {
+			return []error{fmt.Errorf("field %q: expected object, got %s", fullName, valueTypeName(value))}
+		}
+		var problems []error
+		for _, problem := range objectProblems(collectionName, schema.Objects[name], fullName+".", object, nil) {
+			problems = append(problems, problem.err)
+		}
+		return problems
+	}
+
 	if err := validateValue(dataType, value); err != nil {
-		return fmt.Errorf("field %q: %w", name, err)
+		return []error{fmt.Errorf("field %q: %w", fullName, err)}
 	}
 
 	return nil
 }
 
+// fieldError is a problem with one field of a block, by the field's name
+// within that block.
+type fieldError struct {
+	field string
+	err   error
+}
+
+// objectProblems checks a record or an embedded object against its block's
+// schema: every field it supplies, then every required field it's missing,
+// each in sorted order. Fields in skip are left out of both checks, because
+// the caller has already reported them or the database fills them in.
+func objectProblems(collectionName string, schema *Schema, path string, object Entity, skip map[string]bool) []fieldError {
+	var problems []fieldError
+	reported := map[string]bool{}
+
+	for _, name := range sortedKeys(object) {
+		if skip[name] {
+			continue
+		}
+		for _, err := range valueProblems(collectionName, schema, path, name, object[name]) {
+			problems = append(problems, fieldError{name, err})
+			reported[name] = true
+		}
+	}
+
+	for _, name := range sortedKeys(schema.Data) {
+		if skip[name] || reported[name] || schema.Optional[name] {
+			continue
+		}
+		if object[name] == nil {
+			problems = append(problems, fieldError{name, fmt.Errorf("field %q is required for collection %q", path+name, collectionName)})
+		}
+	}
+
+	return problems
+}
+
 // recordProblems checks a record being inserted and returns every problem
-// found, rather than stopping at the first. Checks run in a fixed order, and
-// once a field has a problem, later checks skip it, so one mistake is reported
-// once. It also returns the set of fields that had a problem.
+// found, rather than stopping at the first. The top-level-only checks
+// (auto-increment and primary key fields) run first; once a field has a
+// problem, later checks skip it, so one mistake is reported once. It also
+// returns the set of top-level fields that had a problem.
 func recordProblems(collection *Collection, record Entity) ([]string, map[string]bool) {
 	var problems []string
 	bad := map[string]bool{}
@@ -89,22 +173,18 @@ func recordProblems(collection *Collection, record Entity) ([]string, map[string
 		report(key, fmt.Errorf("record missing primary key %q for collection %q", key, collection.name))
 	}
 
-	for _, name := range sortedKeys(record) {
-		if bad[name] {
-			continue
-		}
-		if err := fieldProblem(collection, name, record[name]); err != nil {
-			report(name, err)
-		}
+	// Auto fields are filled in by the database, and fields already reported
+	// shouldn't be reported again.
+	skip := map[string]bool{}
+	for field := range bad {
+		skip[field] = true
+	}
+	for field := range collection.autoCounters {
+		skip[field] = true
 	}
 
-	for _, name := range sortedKeys(collection.data) {
-		if bad[name] || collection.optional[name] || collection.isAuto(name) {
-			continue
-		}
-		if record[name] == nil {
-			report(name, fmt.Errorf("field %q is required for collection %q", name, collection.name))
-		}
+	for _, problem := range objectProblems(collection.name, collection.rootSchema(), "", record, skip) {
+		report(problem.field, problem.err)
 	}
 
 	return problems, bad
@@ -131,6 +211,8 @@ func valueTypeName(value any) string {
 		return TypeText.String()
 	case bool:
 		return TypeBool.String()
+	case Entity:
+		return TypeObject.String()
 	default:
 		return fmt.Sprintf("unsupported Go type %T", value)
 	}

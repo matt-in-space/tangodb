@@ -55,6 +55,8 @@ user {
 }
 ```
 
+**Implemented so far:** declaring embedded blocks (nestable, optionally `@optional` as a whole), inserting them as nested record literals with recursive validation, and projecting them as dotted columns (`address.city`). Filtering on embedded values (dotted paths, and subset matching on a nested filter like `(address: {city: "MSP"})`) and merging into them come next. `@id` and `@auto` aren't allowed inside an embedded block for now, since it has no identity of its own; they'll likely return for `@collection` blocks, which do.
+
 A nested block **with `@collection`** is a real, independently-identified, independently-queryable collection. The annotation's value is the underlying collection name — this is what lets two differently-named fields share one collection (e.g. `billing_address` and `shipping_address` both backed by `address`).
 
 ```

@@ -27,7 +27,7 @@ func (p *parser) parseInsert() (Operation, error) {
 		return nil, err
 	}
 
-	collectionName, err := p.expectIdent()
+	collectionName, err := p.expectPlainName("collection")
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ func (p *parser) parseRecordLiteral() (Entity, error) {
 	record := Entity{}
 
 	for p.peek().kind != tokenRBrace {
-		fieldName, err := p.expectIdent()
+		fieldName, err := p.expectPlainName("field")
 		if err != nil {
 			return nil, err
 		}
@@ -155,6 +155,14 @@ func (p *parser) parseValue() (any, error) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("expected a value, got %q", p.peek().value)
+
+	case tokenLBrace:
+		// A nested record literal: the value of an embedded block field.
+		record, err := p.parseRecordLiteral()
+		if err != nil {
+			return nil, err
+		}
+		return record, nil
 
 	case tokenEOF:
 		return nil, ErrIncompleteInput
