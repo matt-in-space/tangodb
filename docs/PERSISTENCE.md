@@ -11,17 +11,111 @@ The goal is to learn how a database actually stores data. So this is deliberatel
 Keeping these separate is what protects the lower layers from changes to the data model that are still coming (lists `[]`, `@collection`). The lower layers only ever see opaque bytes, so a new kind of value only changes the record encoder.
 
 ```
-  query layer        (exists today: parse, validate, filter, project)
+  query layer          core.Database: parse, validate, filter, project (Entity values)
        |
-  record layer       encode/decode a record <-> bytes   <- lists / @collection only change this layer
+  collection store     one per collection: Entity <-> bytes, id <-> index key,
+       |   \           keeps the heap and its indexes in step, owns the counters
+       |    \
+       |     uses: record layer (Encode / Decode)    <- lists / @collection mostly change this
+       |           key encoding (order-preserving index keys)
        |
-  access methods     heap file (records in pages) + B+tree indexes
+  access methods       heap file (bytes by RID)    B+tree (key -> RID)
        |
-  buffer pool        fixed number of cached pages, eviction, dirty tracking
+  page source          Fetch / Release / Allocate: in-memory now; a buffer pool later
        |
-  page / file layer  fixed-size pages, page ids, free-space tracking
+  buffer pool          fixed number of cached pages, eviction, dirty tracking   (later)
        |
-  disk               (+ write-ahead log for durability)
+  page / file layer    fixed-size pages in files, page ids                       (later)
+       |
+  disk                 (+ write-ahead log for durability)                       (later)
+```
+
+- **The record layer and key encoding are helpers, not a step in the stack.** Queries don't pass *through* them; the collection store calls them to turn values into bytes and back.
+- **Each layer knows only what it needs:**
+  - the **query layer** knows the language (validation, `@auto`, filters, deep merge, all-or-nothing) and works only on `Entity` values
+  - the **collection store** knows one collection: its primary key field and type, which indexes it has, and that a heap change must be matched by index changes in the same operation
+  - the **access methods** are generic: the heap stores bytes by RID, and the B+tree maps bytes to RIDs. Neither knows what a "user" is
+  - the **page source** hands out pages by number, and doesn't care what's in them
+
+## The collection store, and the full flow
+
+The **collection store** is the glue between the query layer and the access methods, one per collection. Textbooks often call this the "record manager" or "table layer". It replaces today's two in-memory maps on `core.Collection` (`records map[uint64]Entity` and `primaryIndex map[any]uint64`), and the code in `core.Database` that touches them changes from map operations to store calls. Everything about the language keeps working on `Entity` values, unchanged.
+
+It owns:
+- the collection's **heap file** (`user.data`) and its **indexes** (`user.id.index`, and later more)
+- the running state in page 0: page count, the free-space hint, `@auto` counters
+- turning an `Entity` into bytes (`record.Encode`) and back (`record.Decode`)
+- turning a primary key value into an order-preserving index key
+
+### The `Store` interface (implemented in `storage`)
+
+```go
+type Store interface {
+	Insert(records []record.Entity) ([]RecordRef, error)     // all-or-nothing; refs in input order
+	Lookup(key any) (RecordRef, record.Entity, bool, error)  // by primary key; not found is not an error
+	Scan() (Cursor, error)                                   // every record once, no promised order
+	Update(ref RecordRef, rec record.Entity) error           // can't change the primary key
+	Delete(ref RecordRef) error                              // the record and its index entry
+	NextAuto(field string) (int64, error)                    // an @auto counter's next value
+}
+```
+
+- **One store per collection,** configured with only what it needs (the collection name, the primary key field and whether it's `int` or `text`, and the `@auto` fields), not the whole schema. Validation stays in the query layer.
+- **`RecordRef` is opaque:** comparable, but callers can't build or inspect one. The memory store keeps an internal id in it; the page-backed store will pack a RID (a 32-bit page and a 16-bit slot) into it.
+- **`MemoryStore`** is the first implementation. It keeps records as **encoded bytes**, so every write runs `record.Encode` and every read runs `record.Decode`, as a page-backed store will. A side effect: every record it returns is an independent copy.
+- **Inserts and updates are all-or-nothing:** every record is checked (key present and the right type, no duplicate keys, encodable, small enough) before anything is stored. The duplicate-key check deliberately repeats the query layer's, so the index stays consistent whoever calls the store.
+- **The size limit is enforced now:** a record must fit in one data page, `4096 - 16 (header) - 4 (slot) = 4076` bytes. It's derived from the page format, so the memory and page-backed stores agree. Multi-page records come later.
+- **`@auto` counters** advance to one past the highest value inserted, and only when an insert succeeds.
+- **Scans** work from a snapshot of refs: each record that existed when the scan started is visited once, unless it's deleted first. Callers that change records should still collect refs before changing them, since a page-backed cursor may not snapshot.
+- **Every storage error starts with `storage: `,** to tell it apart from language errors (`storage: record 3 is 5120 bytes; the maximum is 4076`).
+
+### Insert: `>> user {id: 42 name: "Matt"};`
+
+```
+  1. REPL          -> core.Parse -> InsertOperation
+  2. Database.insert, all before touching storage:
+       - validate every record (types, required, duplicates in the batch)
+       - duplicate key check: store.Lookup(42)   (an index lookup instead of a map)
+       - strip nulls, assign @auto values from the collection's counters
+  3. store.Insert(entity), for each record in input order:
+       a. record.Encode(entity)                  -> 19 bytes
+       b. heap.Insert(bytes)                     -> RID (3, 0)
+            Fetch a page with room -> slotted insert -> Release(page, dirty)
+       c. index.Insert(key(42), RID(3, 0))
+            Fetch the leaf -> insert (maybe split) -> Release(dirty)
+       d. update the header page                 page count, @auto counters
+  4. make it durable                             flush dirty pages + fsync   (once there are files)
+  5. return InsertResult                         "1"
+```
+
+- **Validate everything before writing anything.** That's what already makes a bad batch change nothing.
+- **Write the heap before the index.** The index entry needs the RID, which only exists after the heap insert.
+- **Durability before the reply:** once there are files, a statement doesn't report success until its pages are on disk.
+- **Known gap until the write-ahead log:** a crash *during* steps 3–4 can leave, say, a record in the heap with no index entry. Validation makes failures *in the language* all-or-nothing; the log is what makes *crashes* all-or-nothing (section 9).
+
+### Read: `<< user(id: 42) => {*};`
+
+```
+  Database.read
+    - choose how to find candidates (the first tiny query planner):
+        an equality on the primary key in the filter  -> store.Lookup(42) -> RID -> heap.Get
+        otherwise                                     -> store.Scan()     -> a cursor over the heap
+    - for each candidate: record.Decode -> Entity -> check the full filter -> project
+```
+
+- Records come back as `Entity` values, so filter matching, `resolvePath`, and table output don't change.
+- **The full filter is still checked after an index lookup.** `(id: 42 name: "Sam")` only narrows candidates by the indexed part.
+- **Scans use a cursor** (`Next()`), so walking a big collection holds one page at a time rather than every record.
+
+### Delete and merge
+
+```
+  delete:  find matches (lookup or scan)
+           -> for each: index.Delete(key, RID), then heap.Delete(RID)
+
+  merge:   find matches -> deepMerge into new Entities -> validate every result (as today)
+           -> for each: heap.Update(RID, record.Encode(new))   (in place, or move + forward)
+           (the primary key can't change in a merge, so the index needs no update)
 ```
 
 ---
@@ -277,6 +371,23 @@ Every page starts with the same small header, so any page can be identified and 
 
 ## 7. Buffer pool (memory limits and caching)
 
+### Page source: the interface the access methods use (leaning)
+
+The access methods get pages through a small interface shaped the way a buffer pool works (fetch, change in place, release), not the way a file works (read a copy, write it back):
+
+```go
+type PageSource interface {
+	Fetch(id PageID) (*Page, error)   // get a page to read or modify in place
+	Release(p *Page, dirty bool)      // done with it; dirty means "it changed, write it back eventually"
+	Allocate() (*Page, error)         // a new, empty page
+}
+```
+
+- **Now:** an in-memory implementation. `Fetch` returns the page from a map, and `Release` does nothing. Every page already lives in memory, so there's nothing to cache yet.
+- **Later:** the buffer pool implements the same interface in front of files. `Fetch` pins a frame (loading it from disk if it isn't cached), and `Release` unpins it and marks it dirty.
+- Because the heap and B+tree are written as fetch, change, release from the start, files and the buffer pool slot in underneath without changing them. (Built on `Read`/`Write` instead, they'd need reworking.)
+- The buffer pool's page table is keyed by **file and page number**, since `user.data` and `user.id.index` both have a page 3.
+
 - **A fixed number of page frames** in memory. This caps how much data is loaded, however big the files get.
 - **Page table:** maps a page id to the frame it's in.
 - **Pin counts:** a page that's in use can't be evicted.
@@ -376,11 +487,13 @@ user { id: int @id name: text };
 ```
 
 ```
-  catalog:  user's primary index root = page 3
-  page 3  (index internal):  42 < 100           -> page 8
-  page 8  (index leaf):      binary search 42   -> RID (17, 3)
-  page 17 (data):            slot 3             -> offset 3994, length 26 -> decode
+  user.id.index page 0 (header):     root = page 3
+  user.id.index page 3 (internal):   42 < 100           -> page 8
+  user.id.index page 8 (leaf):       binary search 42   -> RID (17, 3)
+  user.data     page 17 (data):      slot 3             -> offset 3994, length 26 -> decode
   result:   {id: 42 name: "Matt"}
+
+  (Each file numbers its own pages from 0, so the RID's page 17 means page 17 of user.data.)
 ```
 
 **Page 3, index internal (the root):**
@@ -434,16 +547,22 @@ Because the record carries its own field names and type tags, it decodes without
 
 ## Build order
 
-Each step works end to end on its own:
+Each step ends with everything still working end to end, and is testable on its own:
 
-1. **Page file, slotted pages, and record encoding.** Full scans only; synchronous fsync writes; data survives a restart. Replaces today's in-memory maps with pages.
-2. **Buffer pool.** A memory cap, eviction, and cached reads.
-3. **B+tree primary index.** Replaces the in-memory `primaryIndex`.
-4. **Write-ahead log and recovery.** Statements become all-or-nothing on disk, and commits get cheaper.
-5. **Secondary indexes**, and using them in filters.
-6. **Background flushing and vacuum**, and the async durability option.
+1. ~~**Record layer**~~: `Encode` / `Decode`. *Done* (section 2).
+2. **Access methods, on an in-memory page source.** None of this touches `Database` yet:
+   1. the **slotted page**: insert, get, delete (tombstones), update in place, compaction, "doesn't fit"
+   2. the **`PageSource` interface** and its in-memory implementation
+   3. the **heap file**: insert (finding a page with room), get, update (in place, or move and forward), delete, and a scan cursor that sees each record exactly once
+   4. the **B+tree**: unique keys, lookup, insert with splits (including root splits), range scans
+3. **The collection store, wired into `Database`.** It replaces the two in-memory maps on `core.Collection` and adds the first planner rule (use the primary key index for an equality filter). Still on the in-memory page source, so the REPL behaves exactly as it does today, but records really are encoded bytes in slotted pages, found through a real B+tree.
+4. **Files:** a file-backed page source (`ReadAt` / `WriteAt`, header pages, magic and version checks), the catalog file, opening a database by name, and flush + fsync after each statement. **TangoDB persists.**
+5. **Buffer pool:** a memory cap, eviction, and cached reads, behind the same `PageSource` interface.
+6. **Write-ahead log and recovery.** Statements become all-or-nothing on disk, and commits get cheaper.
+7. **Secondary indexes** (including non-unique ones), and using them in filters.
+8. **Background flushing and vacuum**, and the async durability option.
 
-A good first question to work through is step 1's record encoding and slotted page layout. It also forces the RID and forwarding decisions (sections 3 and 5).
+Building it this way means every layer is exercised through the real query path (step 3) before any data reaches disk. When files arrive (step 4), the only new failure modes are I/O ones.
 
 ---
 
