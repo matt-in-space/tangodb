@@ -169,7 +169,7 @@ func TestDatabaseRun_DeleteDoesNotReuseIDs(t *testing.T) {
 		t.Fatalf("Failed to define collection, err: %v", err)
 	}
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		if _, err := d.Run(InsertOperation{Collection: "user", Records: []Entity{Entity{}}, Projection: []string{"id"}}); err != nil {
 			t.Fatalf("Failed to insert, err: %v", err)
 		}

@@ -81,6 +81,10 @@ func (p *parser) parseFieldBlock(path string) (fieldBlock, error) {
 		}
 		fullName := path + fieldName
 
+		if err := checkFieldName(fieldName); err != nil {
+			return fieldBlock{}, err
+		}
+
 		if _, repeated := block.schema.Data[fieldName]; repeated {
 			return fieldBlock{}, fmt.Errorf("field %q is declared more than once", fullName)
 		}
@@ -92,6 +96,10 @@ func (p *parser) parseFieldBlock(path string) (fieldBlock, error) {
 		var dataType DataType
 
 		if p.peek().kind == tokenLBrace {
+			if err := checkNestingDepth(fullName); err != nil {
+				return fieldBlock{}, err
+			}
+
 			nested, err := p.parseFieldBlock(fullName + ".")
 			if err != nil {
 				return fieldBlock{}, err

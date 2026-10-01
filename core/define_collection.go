@@ -1,6 +1,11 @@
 package core
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/matt-in-space/tangodb/storage/record"
+)
 
 type DefineCollectionOperation struct {
 	Name       string
@@ -87,6 +92,12 @@ func (db *Database) defineCollection(op DefineCollectionOperation) (OperationRes
 // rather than parsed. @id and @auto can't appear inside a block at all, since
 // a Schema has nowhere to record them.
 func checkSchema(collectionName string, schema *Schema, path string) error {
+	for field := range schema.Data {
+		if err := checkFieldName(field); err != nil {
+			return err
+		}
+	}
+
 	for field := range schema.Optional {
 		if _, ok := schema.Data[field]; !ok {
 			return fmt.Errorf("optional field %q not found in schema for collection %q", path+field, collectionName)
@@ -104,6 +115,10 @@ func checkSchema(collectionName string, schema *Schema, path string) error {
 		}
 
 		if hasShape {
+			if err := checkNestingDepth(path + field); err != nil {
+				return err
+			}
+
 			if nested.Optional == nil {
 				nested.Optional = map[string]bool{}
 			}
@@ -116,5 +131,24 @@ func checkSchema(collectionName string, schema *Schema, path string) error {
 		}
 	}
 
+	return nil
+}
+
+// checkFieldName enforces the record format's limit on name length (a name's
+// length is stored in one byte), so every valid record can be stored.
+func checkFieldName(name string) error {
+	if len(name) > record.MaxNameLength {
+		return fmt.Errorf("field name %q is longer than %d bytes", name, record.MaxNameLength)
+	}
+	return nil
+}
+
+// checkNestingDepth enforces the record format's nesting limit on an embedded
+// block field, given its full dotted path: address is 1 level deep,
+// address.geo is 2.
+func checkNestingDepth(path string) error {
+	if depth := strings.Count(path, ".") + 1; depth > record.MaxDepth {
+		return fmt.Errorf("field %q is nested more than %d levels deep", path, record.MaxDepth)
+	}
 	return nil
 }

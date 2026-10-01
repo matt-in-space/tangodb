@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/matt-in-space/tangodb/storage/record"
 )
 
 type DataType int
@@ -116,4 +118,6 @@ func (c Collection) sortedAutoFields() []string {
 	return fields
 }
 
-type Entity map[string]any
+// Entity is a record. It's an alias of record.Entity, so a nested object is the
+// same type in both packages: a type switch on Entity in either one matches it.
+type Entity = record.Entity
